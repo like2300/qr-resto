@@ -129,6 +129,9 @@ STATIC_URL = "static/"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
+# Authentication settings
+LOGIN_URL = 'staff:login'
+
 # Unfold Admin Configuration
 UNFOLD = {
     "SITE_TITLE": "QR Resto Admin",
