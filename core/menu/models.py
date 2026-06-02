@@ -205,7 +205,7 @@ class Table(models.Model):
 
     def get_menu_url(self):
         """Retourne l'URL complète du menu pour cette table"""
-        domain = settings.ALLOWED_HOSTS[0] if settings.ALLOWED_HOSTS else 'localhost:8000'
+        domain = 'qr-resto.alwaysdata.net'
         return f"http://{domain}/m/{self.uuid}/"
 
 

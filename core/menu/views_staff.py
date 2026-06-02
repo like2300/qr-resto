@@ -26,8 +26,8 @@ def staff_login(request):
         user = authenticate(request, username=username, password=password)
         
         if user is not None:
-            # Vérifier que l'utilisateur a les permissions pour un restaurant
-            if user.groups.filter(name__in=['Restaurant Staff', 'Restaurant Manager']).exists():
+            # Vérifier que l'utilisateur a les permissions pour un restaurant ou est superutilisateur
+            if user.is_superuser or user.groups.filter(name__in=['Restaurant Staff', 'Restaurant Manager']).exists():
                 login(request, user)
                 messages.success(request, f'Bienvenue {user.first_name or user.username} !')
                 return redirect('staff:dashboard')
