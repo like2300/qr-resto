@@ -1,0 +1,807 @@
+{% extends 'staff/base.html' %}
+
+{% block title %}Menu - {{ restaurant.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .search-input {
+        width: 100%;
+        padding: 12px 16px 12px 44px;
+        border: 1px solid #e5e7eb;
+        font-size: 14px;
+        transition: all 0.2s;
+    }
+
+    .search-input:focus {
+        outline: none;
+        border-color: #000;
+        box-shadow: 0 0 0 1px #000;
+    }
+
+    .category-card {
+        border: 1px solid #f3f4f6;
+        transition: all 0.3s;
+    }
+
+    .category-card:hover {
+        border-color: #e5e7eb;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+
+    .item-row {
+        border-bottom: 1px solid #f9fafb;
+        transition: all 0.2s;
+    }
+
+    .item-row:hover {
+        background: #f9fafb;
+    }
+
+    .btn-purple {
+        background: #6b21a8;
+        color: #fff;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-size: 11px;
+        font-weight: 600;
+        padding: 12px 20px;
+        transition: all 0.3s;
+    }
+
+    .btn-purple:hover {
+        background: #581c87;
+    }
+
+    .btn-green {
+        background: #16a34a;
+        color: #fff;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-size: 11px;
+        font-weight: 600;
+        padding: 12px 20px;
+        transition: all 0.3s;
+    }
+
+    .btn-green:hover {
+        background: #15803d;
+    }
+
+    .btn-red {
+        background: #dc2626;
+        color: #fff;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-size: 11px;
+        font-weight: 600;
+        padding: 12px 20px;
+        transition: all 0.3s;
+    }
+
+    .btn-red:hover {
+        background: #b91c1c;
+    }
+
+    .btn-secondary {
+        background: #fff;
+        color: #000;
+        border: 1px solid #e5e7eb;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-size: 11px;
+        font-weight: 600;
+        padding: 12px 20px;
+        transition: all 0.3s;
+    }
+
+    .btn-secondary:hover {
+        background: #f9fafb;
+    }
+
+    .form-input {
+        width: 100%;
+        padding: 12px 16px;
+        border: 1px solid #e5e7eb;
+        font-size: 14px;
+        font-family: 'Inter', sans-serif;
+        transition: all 0.2s;
+    }
+
+    .form-input:focus {
+        outline: none;
+        border-color: #000;
+        box-shadow: 0 0 0 1px #000;
+    }
+
+    .form-label {
+        display: block;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #374151;
+        margin-bottom: 8px;
+    }
+
+    /* Switch Toggle */
+    .switch {
+        position: relative;
+        display: inline-block;
+        width: 44px;
+        height: 24px;
+        flex-shrink: 0;
+    }
+
+    .switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+
+    .slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #e5e7eb;
+        transition: .3s;
+        border-radius: 24px;
+    }
+
+    .slider:before {
+        position: absolute;
+        content: "";
+        height: 18px;
+        width: 18px;
+        left: 3px;
+        bottom: 3px;
+        background-color: white;
+        transition: .3s;
+        border-radius: 50%;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    input:checked + .slider {
+        background-color: #16a34a;
+    }
+
+    input:checked + .slider:before {
+        transform: translateX(20px);
+    }
+    
+    /* Loading state for switch */
+    .switch.loading .slider {
+        opacity: 0.5;
+        pointer-events: none;
+    }
+
+    /* Bulk Action Bar */
+    .bulk-action-bar {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: #1f2937;
+        color: white;
+        padding: 16px 24px;
+        display: none;
+        align-items: center;
+        justify-content: space-between;
+        z-index: 40;
+    }
+
+    .bulk-action-bar.active {
+        display: flex;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-serif uppercase tracking-[0.3em]">Menu</h1>
+            <p class="text-[10px] uppercase tracking-widest text-gray-400 mt-2">Gérez les plats, boissons et catégories</p>
+        </div>
+        <div class="flex gap-3">
+            <a href="{% url 'staff:dashboard' %}" class="px-6 py-3 border border-gray-300 text-[10px] uppercase tracking-widest hover:bg-gray-50 transition-colors">
+                <i class="ri-arrow-left-line mr-2"></i>Retour
+            </a>
+            <button type="button" onclick="toggleCategoryModal()" class="btn-purple">
+                <i class="ri-folder-add-line mr-2"></i>Ajouter catégorie
+            </button>
+            <a href="{% url 'staff:add_menu_item' %}" class="btn-green">
+                <i class="ri-add-line mr-2"></i>Ajouter au menu
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Floating Action Container for Bulk Actions -->
+<div id="bulk-action-container" 
+     class="fixed bottom-8 right-8 z-50 hidden flex-col gap-3">
+    
+    <!-- Delete Action -->
+    <button type="button" onclick="openBulkDeleteModal()" 
+            class="w-16 h-16 bg-red-600 text-white rounded-full shadow-2xl hover:bg-red-700 transition-all flex items-center justify-center relative">
+        <i class="ri-delete-bin-line text-2xl"></i>
+    </button>
+    
+    <!-- Disable Action -->
+    <button type="button" onclick="bulkToggleAvailability(false)"
+            class="w-16 h-16 bg-gray-800 text-white rounded-full shadow-2xl hover:bg-black transition-all flex items-center justify-center" title="Désactiver sélection">
+        <i class="ri-eye-off-line text-2xl"></i>
+    </button>
+    
+    <!-- Enable Action -->
+    <button type="button" onclick="bulkToggleAvailability(true)"
+            class="w-16 h-16 bg-green-600 text-white rounded-full shadow-2xl hover:bg-green-700 transition-all flex items-center justify-center" title="Activer sélection">
+        <i class="ri-eye-line text-2xl"></i>
+    </button>
+
+    <!-- Count Badge -->
+    <span id="bulk-count" class="absolute -top-2 -right-2 w-8 h-8 bg-white text-black text-xs font-bold rounded-full border-2 border-black flex items-center justify-center shadow-lg">0</span>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="delete-modal" class="fixed inset-0 z-[100] hidden">
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closeBulkDeleteModal()"></div>
+    <div class="absolute inset-0 flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-md rounded-xl shadow-2xl transform scale-95 opacity-0 transition-all duration-300" id="delete-modal-content">
+            <div class="p-6 text-center">
+                <div class="w-16 h-16 mx-auto mb-4 flex items-center justify-center bg-red-100 rounded-full">
+                    <i class="ri-delete-bin-line text-3xl text-red-600"></i>
+                </div>
+                <h3 class="text-lg font-serif uppercase tracking-widest mb-2">Supprimer les articles</h3>
+                <p class="text-sm text-gray-600 mb-6">
+                    Êtes-vous sûr de vouloir supprimer <strong id="delete-count">0</strong> article(s) sélectionné(s) ?
+                    <br><br>
+                    <span class="text-red-600">Cette action est irréversible.</span>
+                </p>
+                <div class="flex gap-3">
+                    <button type="button" onclick="closeBulkDeleteModal()" class="flex-1 px-4 py-3 border border-gray-300 text-[10px] uppercase tracking-widest hover:bg-gray-50 transition-colors">
+                        Annuler
+                    </button>
+                    <button type="button" onclick="confirmBulkDelete()" class="flex-1 px-4 py-3 bg-red-600 text-white text-[10px] uppercase tracking-widest hover:bg-red-700 transition-colors">
+                        <i class="ri-check-line mr-2"></i>Supprimer
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Search Bar -->
+<div class="mb-8">
+    <div class="relative">
+        <i class="ri-search-line absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg"></i>
+        <form method="get">
+            <input type="text" name="search" value="{{ search_query }}"
+                   class="search-input"
+                   placeholder="Rechercher un plat...">
+        </form>
+    </div>
+</div>
+
+<!-- Categories -->
+<div class="space-y-6">
+    {% for category in categories %}
+    <div class="category-card bg-white">
+        <div class="px-6 py-4 bg-gray-50 border-b border-gray-100 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <!-- Select All Checkbox -->
+                <label class="flex items-center justify-center w-6 h-6 cursor-pointer" title="Tout sélectionner de cette catégorie">
+                    <input type="checkbox" class="category-select-all w-4 h-4 border-gray-300 rounded" data-category-id="{{ category.id }}" onchange="toggleCategorySelection({{ category.id }}); event.stopPropagation();">
+                </label>
+                <div>
+                    <h2 class="font-serif text-lg uppercase tracking-widest">{{ category.name }}</h2>
+                    {% if category.description %}
+                    <p class="text-[10px] uppercase tracking-widest text-gray-400 mt-1">{{ category.description }}</p>
+                    {% endif %}
+                </div>
+            </div>
+            <span class="text-[9px] uppercase tracking-widest text-gray-500">{{ category.items.count }} article(s)</span>
+        </div>
+        <div class="divide-y divide-gray-50">
+            {% for item in category.items.all %}
+            <div class="item-row p-6 flex items-center gap-4" data-item-id="{{ item.id }}">
+                <!-- Checkbox (separate from switch) -->
+                <label class="flex items-center justify-center w-6 h-6 cursor-pointer" onclick="event.stopPropagation();">
+                    <input type="checkbox" class="item-checkbox w-4 h-4 border-gray-300 rounded category-{{ category.id }}" data-item-id="{{ item.id }}" onchange="updateBulkActionBar(); event.stopPropagation();">
+                </label>
+
+                {% if item.image %}
+                <img src="{{ item.image.url }}" alt="{{ item.name }}" class="w-16 h-16 object-cover">
+                {% else %}
+                <div class="w-16 h-16 bg-gray-100 flex items-center justify-center">
+                    <i class="ri-restaurant-line text-2xl text-gray-400"></i>
+                </div>
+                {% endif %}
+
+                <div class="flex-1">
+                    <div class="flex items-center gap-2">
+                        <h3 class="font-medium uppercase tracking-widest text-[10px]">{{ item.name }}</h3>
+                        {% if not item.is_available %}
+                        <span class="px-2 py-1 bg-gray-100 text-gray-600 text-[9px] uppercase tracking-widest">Indisponible</span>
+                        {% endif %}
+                    </div>
+                    {% if item.description %}
+                    <p class="text-[10px] text-gray-500 mt-1 line-clamp-1">{{ item.description }}</p>
+                    {% endif %}
+                </div>
+
+                <div class="text-right">
+                    <p class="font-serif text-lg">{{ item.price|floatformat:0 }} FCFA</p>
+                </div>
+
+                <!-- Actions -->
+                <div class="flex gap-2">
+                    <button type="button" onclick="openEditModal({{ item.id }}, '{{ item.name|escapejs }}', '{{ item.description|escapejs }}', {{ item.price }}, {{ item.category_id }}, {{ item.is_available|lower }})" class="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors">
+                        <i class="ri-edit-line"></i>
+                    </button>
+                    <button type="button" onclick="deleteItem({{ item.id }})" class="p-2 text-red-600 hover:bg-red-50 rounded transition-colors">
+                        <i class="ri-delete-bin-line"></i>
+                    </button>
+                </div>
+            </div>
+            {% empty %}
+            <div class="p-8 text-center">
+                <i class="ri-inbox-line text-3xl text-gray-300 mb-2"></i>
+                <p class="text-[10px] uppercase tracking-widest text-gray-400">Aucun article dans cette catégorie</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% empty %}
+    <div class="bg-white border border-gray-100 p-12 text-center">
+        <i class="ri-menu-line text-5xl text-gray-300 mb-4"></i>
+        <h3 class="font-serif text-lg uppercase tracking-widest mb-2">Aucune catégorie</h3>
+        <p class="text-[10px] uppercase tracking-widest text-gray-400 mb-6">Commencez par créer des catégories</p>
+        <button type="button" onclick="toggleCategoryModal()" class="btn-purple inline-flex">
+            <i class="ri-folder-add-line mr-2"></i>Créer une catégorie
+        </button>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Modal Ajouter Catégorie -->
+<div id="category-modal" class="fixed inset-0 z-[100] hidden">
+    <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="toggleCategoryModal()"></div>
+    <div class="absolute inset-0 flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-md transform scale-95 opacity-0 transition-all duration-300" id="modal-content">
+            <form method="post" action="{% url 'staff:add_category' %}">
+                {% csrf_token %}
+                
+                <div class="p-6 border-b border-gray-100">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <h3 class="font-serif text-xl uppercase tracking-widest">Nouvelle catégorie</h3>
+                            <p class="text-[9px] uppercase tracking-widest text-gray-400 mt-1">Ajouter une catégorie au menu</p>
+                        </div>
+                        <button type="button" onclick="toggleCategoryModal()" class="text-gray-400 hover:text-black">
+                            <i class="ri-close-line text-2xl"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="p-6 space-y-6">
+                    <div>
+                        <label class="form-label">
+                            Nom de la catégorie <span class="text-red-500">*</span>
+                        </label>
+                        <input type="text" name="name" required
+                               class="form-input"
+                               placeholder="Ex: Entrées, Plats, Desserts...">
+                    </div>
+                    
+                    <div>
+                        <label class="form-label">
+                            Description
+                        </label>
+                        <textarea name="description" rows="3"
+                                  class="form-input resize-none"
+                                  placeholder="Description de la catégorie..."></textarea>
+                    </div>
+                    
+                    <div>
+                        <label class="form-label">
+                            Ordre d'affichage
+                        </label>
+                        <input type="number" name="order" value="0" min="0"
+                               class="form-input">
+                    </div>
+                </div>
+                
+                <div class="p-6 border-t border-gray-100 flex gap-3">
+                    <button type="submit" class="flex-1 btn-purple">
+                        <i class="ri-check-line mr-2"></i>Créer
+                    </button>
+                    <button type="button" onclick="toggleCategoryModal()" class="btn-secondary">
+                        Annuler
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Item Modal -->
+<div id="edit-modal" class="fixed inset-0 z-[100] hidden">
+    <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="closeEditModal()"></div>
+    <div class="absolute inset-0 flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-2xl rounded-xl shadow-2xl transform scale-95 opacity-0 transition-all duration-300" id="edit-modal-content">
+            <form id="edit-form" method="post" action="{% url 'staff:edit_menu_item' %}">
+                {% csrf_token %}
+                <input type="hidden" name="item_id" id="edit-item-id">
+
+                <div class="p-6 border-b border-gray-100 flex justify-between items-center">
+                    <div>
+                        <h3 class="text-lg font-serif uppercase tracking-widest">Modifier l'article</h3>
+                        <p class="text-[9px] uppercase tracking-widest text-gray-400 mt-1">Modifiez les informations du plat</p>
+                    </div>
+                    <button type="button" onclick="closeEditModal()" class="text-gray-400 hover:text-black">
+                        <i class="ri-close-line text-2xl"></i>
+                    </button>
+                </div>
+
+                <div class="p-6 grid grid-cols-2 gap-4">
+                    <div class="col-span-2">
+                        <label class="form-label">Nom du plat</label>
+                        <input type="text" name="name" id="edit-name" required class="form-input">
+                    </div>
+
+                    <div class="col-span-2">
+                        <label class="form-label">Description</label>
+                        <textarea name="description" id="edit-description" rows="3" class="form-input resize-none"></textarea>
+                    </div>
+
+                    <div>
+                        <label class="form-label">Prix (FCFA)</label>
+                        <input type="number" name="price" id="edit-price" required min="0" class="form-input">
+                    </div>
+
+                    <div>
+                        <label class="form-label">Catégorie</label>
+                        <select name="category" id="edit-category" class="form-input">
+                            {% for cat in categories %}
+                            <option value="{{ cat.id }}">{{ cat.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="col-span-2">
+                        <label class="form-label mb-3">Disponibilité</label>
+                        <div class="flex items-center gap-3">
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" name="is_available" value="on" id="edit-availability-switch" class="sr-only peer" onchange="updateEditSwitch()">
+                                <div class="w-14 h-8 bg-gray-200 peer-focus:outline-none rounded-full shadow-inner peer peer-checked:bg-green-500 transition-colors duration-300"></div>
+                                <div class="absolute top-1 left-1 w-6 h-6 bg-white rounded-full shadow transition-transform duration-300 peer-checked:translate-x-6"></div>
+                            </label>
+                            <span class="text-[10px] uppercase tracking-widest text-gray-700" id="edit-availability-text">
+                                Disponible
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-6 border-t border-gray-100 flex gap-3">
+                    <button type="submit" class="flex-1 btn-purple">
+                        <i class="ri-check-line mr-2"></i>Enregistrer
+                    </button>
+                    <button type="button" onclick="closeEditModal()" class="btn-secondary">
+                        Annuler
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Category Modal
+function toggleCategoryModal() {
+    const modal = document.getElementById('category-modal');
+    const content = document.getElementById('modal-content');
+
+    if (modal.classList.contains('hidden')) {
+        modal.classList.remove('hidden');
+        setTimeout(() => {
+            content.classList.remove('scale-95', 'opacity-0');
+            content.classList.add('scale-100', 'opacity-100');
+        }, 10);
+    } else {
+        content.classList.remove('scale-100', 'opacity-100');
+        content.classList.add('scale-95', 'opacity-0');
+        setTimeout(() => {
+            modal.classList.add('hidden');
+        }, 300);
+    }
+}
+
+// Edit Modal
+function openEditModal(id, name, description, price, categoryId, isAvailable) {
+    const modal = document.getElementById('edit-modal');
+    const content = document.getElementById('edit-modal-content');
+
+    document.getElementById('edit-item-id').value = id;
+    document.getElementById('edit-name').value = name;
+    document.getElementById('edit-description').value = description;
+    document.getElementById('edit-price').value = price;
+    document.getElementById('edit-category').value = categoryId;
+    
+    // Set availability switch
+    const availabilitySwitch = document.getElementById('edit-availability-switch');
+    availabilitySwitch.checked = isAvailable;
+    updateEditSwitch();
+
+    modal.classList.remove('hidden');
+    setTimeout(() => {
+        content.classList.remove('scale-95', 'opacity-0');
+        content.classList.add('scale-100', 'opacity-100');
+    }, 10);
+}
+
+function updateEditSwitch() {
+    const availabilitySwitch = document.getElementById('edit-availability-switch');
+    const availabilityText = document.getElementById('edit-availability-text');
+    
+    console.log('Edit switch changed:', availabilitySwitch.checked);
+    
+    if (availabilitySwitch.checked) {
+        availabilityText.textContent = 'Disponible';
+    } else {
+        availabilityText.textContent = 'Indisponible';
+    }
+}
+
+function closeEditModal() {
+    const modal = document.getElementById('edit-modal');
+    const content = document.getElementById('edit-modal-content');
+    
+    content.classList.remove('scale-100', 'opacity-100');
+    content.classList.add('scale-95', 'opacity-0');
+    setTimeout(() => {
+        modal.classList.add('hidden');
+    }, 300);
+}
+
+// Toggle Item Availability - ONE ITEM ONLY
+function toggleItemAvailability(itemId, isAvailable) {
+    // Get the specific switch for this item only
+    const switchEl = document.getElementById('switch-input-' + itemId);
+    const switchLabel = document.getElementById('switch-' + itemId);
+    
+    // Add loading state
+    if (switchLabel) {
+        switchLabel.classList.add('loading');
+    }
+    
+    fetch('/staff/menu/item/' + itemId + '/toggle/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ is_available: isAvailable })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('Article ' + (isAvailable ? 'activé' : 'désactivé'), 'success');
+            // Update badge without reload
+            const row = document.querySelector('[data-item-id="' + itemId + '"]');
+            if (row) {
+                const badge = row.querySelector('span.px-2.py-1.bg-gray-100');
+                if (!isAvailable && !badge) {
+                    const nameEl = row.querySelector('h3');
+                    if (nameEl) {
+                        const newBadge = document.createElement('span');
+                        newBadge.className = 'px-2 py-1 bg-gray-100 text-gray-600 text-[9px] uppercase tracking-widest ml-2';
+                        newBadge.textContent = 'Indisponible';
+                        nameEl.parentNode.appendChild(newBadge);
+                    }
+                } else if (isAvailable && badge) {
+                    badge.remove();
+                }
+            }
+        } else {
+            showNotification('Erreur lors de la modification', 'error');
+            // Revert the switch
+            if (switchEl) {
+                switchEl.checked = !isAvailable;
+            }
+        }
+    })
+    .catch(() => {
+        showNotification('Erreur de connexion', 'error');
+        // Revert the switch
+        if (switchEl) {
+            switchEl.checked = !isAvailable;
+        }
+    })
+    .finally(() => {
+        // Remove loading state
+        if (switchLabel) {
+            switchLabel.classList.remove('loading');
+        }
+    });
+}
+
+// Delete Item
+function deleteItem(itemId) {
+    if (!confirm('Êtes-vous sûr de vouloir supprimer cet article ?')) return;
+    
+    fetch('/staff/menu/item/' + itemId + '/delete/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    })
+    .then(response => {
+        if (response.ok) {
+            showNotification('Article supprimé', 'success');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showNotification('Erreur lors de la suppression', 'error');
+        }
+    })
+    .catch(() => {
+        showNotification('Erreur de connexion', 'error');
+    });
+}
+
+// Bulk Selection
+function updateBulkActionBar() {
+    const checkboxes = document.querySelectorAll('.item-checkbox:checked');
+    const container = document.getElementById('bulk-action-container');
+    const countSpan = document.getElementById('bulk-count');
+
+    if (checkboxes.length > 0) {
+        container.classList.remove('hidden');
+        container.classList.add('flex');
+        countSpan.textContent = checkboxes.length;
+    } else {
+        container.classList.add('hidden');
+        container.classList.remove('flex');
+    }
+}
+
+function toggleCategorySelection(categoryId) {
+    const categoryCheckbox = document.querySelector('.category-select-all[data-category-id="' + categoryId + '"]');
+    const categoryItems = document.querySelectorAll('.item-checkbox.category-' + categoryId);
+    const isChecked = categoryCheckbox.checked;
+
+    categoryItems.forEach(item => {
+        item.checked = isChecked;
+    });
+
+    updateBulkActionBar();
+}
+
+function clearSelection() {
+    document.querySelectorAll('.item-checkbox, .category-select-all').forEach(cb => cb.checked = false);
+    document.getElementById('bulk-action-container').classList.add('hidden');
+}
+
+function getSelectedItems() {
+    return Array.from(document.querySelectorAll('.item-checkbox:checked'))
+        .map(cb => cb.dataset.itemId);
+}
+
+function openBulkDeleteModal() {
+    const itemIds = getSelectedItems();
+    if (itemIds.length === 0) return;
+    
+    const modal = document.getElementById('delete-modal');
+    const content = document.getElementById('delete-modal-content');
+    const deleteCount = document.getElementById('delete-count');
+    
+    deleteCount.textContent = itemIds.length;
+    
+    modal.classList.remove('hidden');
+    setTimeout(() => {
+        content.classList.remove('scale-95', 'opacity-0');
+        content.classList.add('scale-100', 'opacity-100');
+    }, 10);
+}
+
+function closeBulkDeleteModal() {
+    const modal = document.getElementById('delete-modal');
+    const content = document.getElementById('delete-modal-content');
+    
+    content.classList.remove('scale-100', 'opacity-100');
+    content.classList.add('scale-95', 'opacity-0');
+    setTimeout(() => {
+        modal.classList.add('hidden');
+    }, 300);
+}
+
+function confirmBulkDelete() {
+    const itemIds = getSelectedItems();
+    if (itemIds.length === 0) return;
+
+    fetch('/staff/menu/item/bulk-delete/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ item_ids: itemIds })
+    })
+    .then(response => {
+        if (response.ok) {
+            showNotification(itemIds.length + ' article(s) supprimé(s)', 'success');
+            closeBulkDeleteModal();
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showNotification('Erreur lors de la suppression', 'error');
+            closeBulkDeleteModal();
+        }
+    })
+    .catch(() => {
+        showNotification('Erreur de connexion', 'error');
+        closeBulkDeleteModal();
+    });
+}
+
+function bulkToggleAvailability(isAvailable) {
+    const itemIds = getSelectedItems();
+    if (itemIds.length === 0) return;
+    
+    fetch('/staff/menu/item/bulk-toggle/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ item_ids: itemIds, is_available: isAvailable })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(itemIds.length + ' article(s) ' + (isAvailable ? 'activé(s)' : 'désactivé(s)'), 'success');
+            clearSelection();
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showNotification('Erreur lors de la modification', 'error');
+        }
+    })
+    .catch(() => {
+        showNotification('Erreur de connexion', 'error');
+    });
+}
+
+// Notification
+function showNotification(message, type) {
+    const notification = document.createElement('div');
+    notification.className = 'fixed top-6 right-6 px-6 py-4 rounded-lg shadow-2xl z-[100] ' + 
+        (type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white');
+    notification.innerHTML = '<i class="' + (type === 'success' ? 'ri-check-line' : 'ri-error-warning-line') + ' mr-2"></i>' + message;
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.style.opacity = '0';
+        notification.style.transition = 'opacity 0.3s';
+        setTimeout(() => notification.remove(), 300);
+    }, 3000);
+}
+
+// CSRF Token
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}

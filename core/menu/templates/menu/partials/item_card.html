@@ -1,0 +1,57 @@
+<article class="menu-item group flex flex-col"
+         data-name="{{ item.name|lower }}"
+         data-name-fr="{{ item.name|lower }}"
+         data-name-en="{{ item.name|lower }}"
+         data-description="{{ item.description|lower }}"
+         data-description-fr="{{ item.description|lower }}"
+         data-description-en="{{ item.description|lower }}"
+         data-price-fcfa="{{ item.price }}">
+    {% if item.image %}
+    <div class="aspect-[4/3] mb-5 overflow-hidden bg-gray-50 border border-gray-100 cursor-pointer relative"
+         onclick="openItemModal({{ item.id }}, '{{ item.name|escapejs }}', {{ item.price }}, '{{ item.description|escapejs }}', '{{ item.image.url }}')">
+        <img src="{{ item.image.url }}" alt="{{ item.name }}"
+             class="w-full h-full object-cover transition-all duration-500">
+        <div class="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-all"></div>
+    </div>
+    {% else %}
+    <div class="aspect-[4/3] mb-5 overflow-hidden bg-gray-50 border border-gray-100 cursor-pointer"
+         onclick="openItemModal({{ item.id }}, '{{ item.name|escapejs }}', {{ item.price }}, '{{ item.description|escapejs }}', '')">
+        <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
+            <i class="ri-restaurant-line text-5xl text-gray-300"></i>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="flex flex-col flex-1">
+        <div class="flex justify-between items-start mb-2">
+            <h3 class="text-sm font-medium uppercase tracking-widest flex-1 pr-4 item-name">{{ item.name }}</h3>
+            <span class="text-lg font-serif font-semibold flex-shrink-0" data-price="{{ item.price }}">
+                {{ item.price|floatformat:0 }} FCFA
+            </span>
+        </div>
+
+        {% if item.description %}
+        <p class="text-xs text-gray-500 font-light leading-relaxed mb-6 line-clamp-2 item-description">
+            {{ item.description }}
+        </p>
+        {% else %}
+        <div class="mb-6"></div>
+        {% endif %}
+
+        <div class="mt-auto flex items-center justify-between border border-gray-200 p-2 hover:border-gray-400 transition-colors">
+            <button type="button" class="w-9 h-9 flex items-center justify-center hover:bg-gray-50 transition-colors"
+                    onclick="updateQuantity({{ item.id }}, -1, {{ item.price|floatformat:0 }}); event.stopPropagation();">
+                <i class="ri-subtract-line text-lg"></i>
+            </button>
+
+            <span id="quantity-{% if suffix %}{{ suffix }}-{% endif %}{{ item.id }}" class="text-base font-bold tracking-widest font-serif">0</span>
+
+            <button type="button" class="w-9 h-9 flex items-center justify-center bg-gray-900 text-white hover:bg-gray-800 transition-colors"
+                    onclick="updateQuantity({{ item.id }}, 1, {{ item.price|floatformat:0 }}); event.stopPropagation();">
+                <i class="ri-add-line text-lg"></i>
+            </button>
+        </div>
+    </div>
+
+    <input type="hidden" name="item{% if suffix %}-{{ suffix }}{% endif %}-{{ item.id }}" id="input-{% if suffix %}{{ suffix }}-{% endif %}{{ item.id }}" value="0">
+</article>

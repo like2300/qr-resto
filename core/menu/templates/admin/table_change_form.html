@@ -1,0 +1,99 @@
+{% extends "admin/change_form.html" %}
+{% load static %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+    input[type="color"] {
+        -webkit-appearance: none;
+        border: none;
+        width: 50px;
+        height: 50px;
+        border-radius: 8px;
+        cursor: pointer;
+        padding: 0;
+        background: none;
+    }
+    input[type="color"]::-webkit-color-swatch-wrapper {
+        padding: 0;
+    }
+    input[type="color"]::-webkit-color-swatch {
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+    }
+    input[type="color"]::-moz-color-swatch {
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+    }
+    .color-picker-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        margin-top: 10px;
+    }
+    .color-presets {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    .color-preset {
+        width: 30px;
+        height: 30px;
+        border-radius: 6px;
+        cursor: pointer;
+        border: 2px solid #e5e7eb;
+        transition: transform 0.2s, border-color 0.2s;
+    }
+    .color-preset:hover {
+        transform: scale(1.1);
+        border-color: #3b82f6;
+    }
+</style>
+{% endblock %}
+
+{% block after_field_sets %}
+{{ block.super }}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const colorInput = document.querySelector('input[name="color"]');
+        if (colorInput) {
+            // Créer le wrapper avec sélecteur de couleur
+            const wrapper = document.createElement('div');
+            wrapper.className = 'color-picker-wrapper';
+            wrapper.innerHTML = `
+                <input type="color" value="${colorInput.value}" id="colorPicker">
+                <div class="color-presets">
+                    <div class="color-preset" style="background: #EF4444" data-color="#EF4444"></div>
+                    <div class="color-preset" style="background: #F97316" data-color="#F97316"></div>
+                    <div class="color-preset" style="background: #F59E0B" data-color="#F59E0B"></div>
+                    <div class="color-preset" style="background: #10B981" data-color="#10B981"></div>
+                    <div class="color-preset" style="background: #3B82F6" data-color="#3B82F6"></div>
+                    <div class="color-preset" style="background: #8B5CF6" data-color="#8B5CF6"></div>
+                    <div class="color-preset" style="background: #EC4899" data-color="#EC4899"></div>
+                    <div class="color-preset" style="background: #6B7280" data-color="#6B7280"></div>
+                </div>
+            `;
+
+            // Insérer après le champ color
+            colorInput.parentElement.appendChild(wrapper);
+
+            // Synchroniser le color picker avec le champ texte
+            const colorPicker = document.getElementById('colorPicker');
+            colorPicker.value = colorInput.value;
+
+            colorPicker.addEventListener('input', function() {
+                colorInput.value = this.value;
+            });
+
+            // Gérer les presets de couleur
+            document.querySelectorAll('.color-preset').forEach(preset => {
+                preset.addEventListener('click', function() {
+                    const color = this.getAttribute('data-color');
+                    colorInput.value = color;
+                    colorPicker.value = color;
+                });
+            });
+        }
+    });
+</script>
+{% endblock %}

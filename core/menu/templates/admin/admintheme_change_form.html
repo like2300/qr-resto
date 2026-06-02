@@ -1,0 +1,199 @@
+{% extends "admin/change_form.html" %}
+{% load static %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+    input[type="color"] {
+        -webkit-appearance: none;
+        border: none;
+        width: 50px;
+        height: 50px;
+        border-radius: 8px;
+        cursor: pointer;
+        padding: 0;
+        background: none;
+    }
+    input[type="color"]::-webkit-color-swatch-wrapper {
+        padding: 0;
+    }
+    input[type="color"]::-webkit-color-swatch {
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+    }
+    input[type="color"]::-moz-color-swatch {
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+    }
+    .color-picker-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        margin-top: 10px;
+        flex-wrap: wrap;
+    }
+    .color-presets {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    .color-preset {
+        width: 30px;
+        height: 30px;
+        border-radius: 6px;
+        cursor: pointer;
+        border: 2px solid #e5e7eb;
+        transition: transform 0.2s, border-color 0.2s;
+    }
+    .color-preset:hover {
+        transform: scale(1.1);
+        border-color: #3b82f6;
+    }
+    .theme-preset-btn {
+        padding: 8px 16px;
+        border-radius: 8px;
+        border: 2px solid #e5e7eb;
+        cursor: pointer;
+        font-weight: 500;
+        transition: all 0.2s;
+        background: white;
+    }
+    .theme-preset-btn:hover {
+        border-color: #3b82f6;
+        transform: translateY(-2px);
+    }
+</style>
+{% endblock %}
+
+{% block after_field_sets %}
+{{ block.super }}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialiser tous les champs de couleur
+        document.querySelectorAll('input[type="text"][name$="_color"]').forEach(function(colorInput) {
+            // Créer le wrapper avec sélecteur de couleur
+            const wrapper = document.createElement('div');
+            wrapper.className = 'color-picker-wrapper';
+            wrapper.innerHTML = `
+                <input type="color" value="${colorInput.value}" class="colorPicker">
+                <div class="color-presets">
+                    <div class="color-preset" style="background: #EF4444" data-color="#EF4444"></div>
+                    <div class="color-preset" style="background: #F97316" data-color="#F97316"></div>
+                    <div class="color-preset" style="background: #F59E0B" data-color="#F59E0B"></div>
+                    <div class="color-preset" style="background: #10B981" data-color="#10B981"></div>
+                    <div class="color-preset" style="background: #3B82F6" data-color="#3B82F6"></div>
+                    <div class="color-preset" style="background: #8B5CF6" data-color="#8B5CF6"></div>
+                    <div class="color-preset" style="background: #EC4899" data-color="#EC4899"></div>
+                    <div class="color-preset" style="background: #6B7280" data-color="#6B7280"></div>
+                    <div class="color-preset" style="background: #1F2937" data-color="#1F2937"></div>
+                    <div class="color-preset" style="background: #FFFFFF" data-color="#FFFFFF"></div>
+                </div>
+            `;
+            
+            // Insérer après le champ color
+            colorInput.parentElement.appendChild(wrapper);
+            
+            // Synchroniser le color picker avec le champ texte
+            const colorPicker = wrapper.querySelector('.colorPicker');
+            colorPicker.value = colorInput.value;
+            
+            colorPicker.addEventListener('input', function() {
+                colorInput.value = this.value;
+            });
+            
+            // Gérer les presets de couleur
+            wrapper.querySelectorAll('.color-preset').forEach(preset => {
+                preset.addEventListener('click', function() {
+                    const color = this.getAttribute('data-color');
+                    colorInput.value = color;
+                    colorPicker.value = color;
+                });
+            });
+        });
+        
+        // Ajouter des boutons de thèmes prédéfinis
+        const generalFieldset = document.querySelector('fieldset h2');
+        if (generalFieldset) {
+            const presetDiv = document.createElement('div');
+            presetDiv.style.cssText = 'margin-bottom: 20px; padding: 15px; background: #f9fafb; border-radius: 8px;';
+            presetDiv.innerHTML = `
+                <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #374151;">🎨 Thèmes prédéfinis</h3>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button type="button" class="theme-preset-btn" data-theme="ocean">🌊 Océan</button>
+                    <button type="button" class="theme-preset-btn" data-theme="sunset">🌅 Sunset</button>
+                    <button type="button" class="theme-preset-btn" data-theme="forest">🌲 Forêt</button>
+                    <button type="button" class="theme-preset-btn" data-theme="berry">🫐 Baie</button>
+                    <button type="button" class="theme-preset-btn" data-theme="midnight">🌙 Minuit</button>
+                    <button type="button" class="theme-preset-btn" data-theme="corporate">💼 Corporate</button>
+                </div>
+            `;
+            generalFieldset.parentElement.insertBefore(presetDiv, generalFieldset.nextSibling);
+            
+            // Gérer les clics sur les thèmes
+            const themes = {
+                ocean: {
+                    primary_color: '#0EA5E9', primary_hover: '#0284C7', primary_light: '#E0F2FE',
+                    success_color: '#10B981', warning_color: '#F59E0B', danger_color: '#EF4444',
+                    sidebar_bg: '#1E3A5F', sidebar_bg_gradient: '#0F172A', sidebar_text: '#F8FAFC',
+                    bg_color: '#F0F9FF', card_bg: '#FFFFFF', text_primary: '#1E293B',
+                    text_secondary: '#64748B', border_color: '#CBD5E1', border_radius: 8
+                },
+                sunset: {
+                    primary_color: '#F97316', primary_hover: '#EA580C', primary_light: '#FFEDD5',
+                    success_color: '#10B981', warning_color: '#F59E0B', danger_color: '#DC2626',
+                    sidebar_bg: '#7C2D12', sidebar_bg_gradient: '#431407', sidebar_text: '#FFFBEB',
+                    bg_color: '#FFFBEB', card_bg: '#FFFFFF', text_primary: '#1C1917',
+                    text_secondary: '#78716C', border_color: '#E7E5E4', border_radius: 12
+                },
+                forest: {
+                    primary_color: '#059669', primary_hover: '#047857', primary_light: '#D1FAE5',
+                    success_color: '#10B981', warning_color: '#F59E0B', danger_color: '#DC2626',
+                    sidebar_bg: '#14532D', sidebar_bg_gradient: '#052E16', sidebar_text: '#F0FDF4',
+                    bg_color: '#F0FDF4', card_bg: '#FFFFFF', text_primary: '#1C1917',
+                    text_secondary: '#57534E', border_color: '#D6D3D1', border_radius: 8
+                },
+                berry: {
+                    primary_color: '#DB2777', primary_hover: '#BE185D', primary_light: '#FCE7F3',
+                    success_color: '#10B981', warning_color: '#F59E0B', danger_color: '#DC2626',
+                    sidebar_bg: '#831843', sidebar_bg_gradient: '#500724', sidebar_text: '#FDF2F8',
+                    bg_color: '#FDF2F8', card_bg: '#FFFFFF', text_primary: '#1F2937',
+                    text_secondary: '#6B7280', border_color: '#F3E8E8', border_radius: 12
+                },
+                midnight: {
+                    primary_color: '#8B5CF6', primary_hover: '#7C3AED', primary_light: '#EDE9FE',
+                    success_color: '#10B981', warning_color: '#F59E0B', danger_color: '#EF4444',
+                    sidebar_bg: '#1E1B4B', sidebar_bg_gradient: '#0F0A1F', sidebar_text: '#F5F3FF',
+                    bg_color: '#F5F3FF', card_bg: '#FFFFFF', text_primary: '#1F2937',
+                    text_secondary: '#6B7280', border_color: '#E0E7FF', border_radius: 8
+                },
+                corporate: {
+                    primary_color: '#2563EB', primary_hover: '#1D4ED8', primary_light: '#DBEAFE',
+                    success_color: '#059669', warning_color: '#D97706', danger_color: '#DC2626',
+                    sidebar_bg: '#1E293B', sidebar_bg_gradient: '#0F172A', sidebar_text: '#F8FAFC',
+                    bg_color: '#F8FAFC', card_bg: '#FFFFFF', text_primary: '#111827',
+                    text_secondary: '#6B7280', border_color: '#E5E7EB', border_radius: 6
+                }
+            };
+            
+            presetDiv.querySelectorAll('.theme-preset-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const theme = themes[this.getAttribute('data-theme')];
+                    if (theme) {
+                        for (const [key, value] of Object.entries(theme)) {
+                            const input = document.querySelector(`input[name="${key}"]`);
+                            if (input) {
+                                input.value = value;
+                                // Mettre à jour le color picker si présent
+                                const picker = input.parentElement.querySelector('.colorPicker');
+                                if (picker) {
+                                    picker.value = value;
+                                }
+                            }
+                        }
+                    }
+                });
+            });
+        }
+    });
+</script>
+{% endblock %}

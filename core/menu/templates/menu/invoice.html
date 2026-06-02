@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Facture #{{ order.uuid|truncatechars:8 }}</title>
+    {% load menu_extras %}
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+
+    <!-- Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+
+    <style>
+        :root {
+            --font-serif: 'Playfair Display', serif;
+            --font-sans: 'Inter', sans-serif;
+        }
+
+        body {
+            font-family: var(--font-sans);
+            background: #f9fafb;
+            color: #1a1a1a;
+        }
+
+        .font-serif { font-family: var(--font-serif); }
+
+        * { border-radius: 0 !important; }
+
+        .invoice-wrapper {
+            max-width: 210mm;
+            margin: 40px auto;
+            background: white;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .invoice-container {
+            padding: 48px;
+        }
+
+        @media print {
+            @page {
+                size: A4;
+                margin: 15mm;
+            }
+
+            body {
+                background: white !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+
+            .invoice-wrapper {
+                margin: 0 !important;
+                box-shadow: none !important;
+                max-width: none !important;
+            }
+
+            .invoice-container {
+                padding: 0 !important;
+            }
+
+            .no-print {
+                display: none !important;
+            }
+
+            .info-item {
+                background: #f9fafb !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+
+            .items-table tbody tr:nth-child(even) {
+                background: #f9fafb !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Action Buttons -->
+    <div class="no-print fixed top-4 right-4 flex gap-3 z-50">
+        <a href="{% url 'menu:order_detail' table.uuid order.uuid %}" 
+           class="px-6 py-3 bg-black text-white text-[10px] uppercase tracking-widest font-bold hover:bg-gray-800 transition-colors">
+            <i class="ri-arrow-left-line mr-2"></i>Retour
+        </a>
+        <button onclick="window.print()" 
+                class="px-6 py-3 bg-white border-2 border-black text-black text-[10px] uppercase tracking-widest font-bold hover:bg-gray-50 transition-colors">
+            <i class="ri-printer-line mr-2"></i>Imprimer
+        </button>
+    </div>
+
+    <!-- Invoice -->
+    <div class="invoice-wrapper">
+        <div class="invoice-container">
+            <!-- Header -->
+            <div class="text-center pb-8 mb-12 border-b-2 border-black">
+                {% if restaurant.logo %}
+                <img src="{{ restaurant.logo.url }}" alt="{{ restaurant.name }}" 
+                     class="h-20 mx-auto mb-6 object-contain">
+                {% endif %}
+                
+                <h1 class="text-3xl font-serif uppercase tracking-[0.3em] mb-2">{{ restaurant.name }}</h1>
+                
+                {% if restaurant.address or restaurant.city %}
+                <p class="text-xs uppercase tracking-widest text-gray-500 mt-4">
+                    {% if restaurant.address %}{{ restaurant.address }}{% endif %}
+                    {% if restaurant.city %} — {{ restaurant.postal_code }} {{ restaurant.city }}{% endif %}
+                </p>
+                {% endif %}
+                
+                {% if restaurant.phone %}
+                <p class="text-xs uppercase tracking-widest text-gray-500 mt-1">
+                    <i class="ri-phone-line mr-1"></i> {{ restaurant.phone }}
+                </p>
+                {% endif %}
+                
+                <p class="text-[10px] uppercase tracking-widest text-gray-400 mt-6">
+                    Facture — {{ order.created_at|date:"d/m/Y à H:i" }}
+                </p>
+            </div>
+
+            <!-- Info Grid -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
+                <div class="info-item p-4 bg-gray-50">
+                    <p class="text-[9px] uppercase tracking-widest text-gray-400 mb-2">Numéro</p>
+                    <p class="font-serif italic text-lg">#{{ order.uuid|truncatechars:8 }}</p>
+                </div>
+                <div class="info-item p-4 bg-gray-50">
+                    <p class="text-[9px] uppercase tracking-widest text-gray-400 mb-2">Table</p>
+                    <p class="font-serif italic text-lg">{{ table.name }}</p>
+                </div>
+                <div class="info-item p-4 bg-gray-50">
+                    <p class="text-[9px] uppercase tracking-widest text-gray-400 mb-2">Date</p>
+                    <p class="font-serif italic text-lg">{{ order.created_at|date:"d/m/Y" }}</p>
+                </div>
+                <div class="info-item p-4 bg-gray-50">
+                    <p class="text-[9px] uppercase tracking-widest text-gray-400 mb-2">Statut</p>
+                    <span class="inline-block px-3 py-1 text-[9px] uppercase tracking-widest
+                        {% if order.status == 'pending' %}bg-yellow-100 text-yellow-700
+                        {% elif order.status == 'confirmed' %}bg-blue-100 text-blue-700
+                        {% elif order.status == 'preparing' %}bg-purple-100 text-purple-700
+                        {% elif order.status == 'ready' %}bg-green-100 text-green-700
+                        {% elif order.status == 'served' %}bg-gray-100 text-gray-700
+                        {% elif order.status == 'cancelled' %}bg-red-100 text-red-700{% endif %}">
+                        {{ order.get_status_display }}
+                    </span>
+                </div>
+            </div>
+
+            <!-- Items Table -->
+            <table class="w-full mb-12 items-table">
+                <thead>
+                    <tr class="border-b-2 border-black">
+                        <th class="text-left py-4 text-[9px] uppercase tracking-widest text-gray-500 w-16">Qté</th>
+                        <th class="text-left py-4 text-[9px] uppercase tracking-widest text-gray-500">Désignation</th>
+                        <th class="text-right py-4 text-[9px] uppercase tracking-widest text-gray-500 w-24">Prix unit.</th>
+                        <th class="text-right py-4 text-[9px] uppercase tracking-widest text-gray-500 w-24">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in order.items.all %}
+                    <tr class="border-b border-gray-100">
+                        <td class="py-4 text-center text-sm">{{ item.quantity }}</td>
+                        <td class="py-4">
+                            <p class="font-medium uppercase tracking-tight">{{ item.menu_item.name }}</p>
+                            {% if item.notes %}
+                            <p class="text-xs text-gray-500 italic mt-1">
+                                <i class="ri-message-line mr-1"></i>{{ item.notes }}
+                            </p>
+                            {% endif %}
+                        </td>
+                        <td class="py-4 text-right text-sm text-gray-600">
+                            {{ item.unit_price|floatformat:0 }} FCFA
+                        </td>
+                        <td class="py-4 text-right font-semibold">
+                            {{ item.subtotal|floatformat:0 }} FCFA
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="py-8 text-center text-gray-400 italic">
+                            Aucun article dans cette commande
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <!-- Totals -->
+            <div class="flex justify-end mb-12">
+                <div class="w-full max-w-sm">
+                    {% if restaurant.vat_enabled %}
+                    <div class="flex justify-between py-3 border-b border-gray-100">
+                        <span class="text-xs uppercase tracking-widest text-gray-500">Total HT</span>
+                        <span class="font-medium">
+                            {{ order.total_price|floatformat:0 }} FCFA
+                        </span>
+                    </div>
+                    <div class="flex justify-between py-3 border-b border-gray-100">
+                        <span class="text-xs uppercase tracking-widest text-gray-500">TVA ({{ restaurant.vat_rate }}%)</span>
+                        <span class="font-medium">
+                            {{ order.total_price|multiply:restaurant.vat_rate|divide:"100"|floatformat:0 }} FCFA
+                        </span>
+                    </div>
+                    {% endif %}
+                    <div class="flex justify-between py-4 bg-black text-white px-4">
+                        <span class="text-[9px] uppercase tracking-widest">Total TTC</span>
+                        <span class="font-serif text-xl italic">
+                            {{ order.total_price|floatformat:0 }} FCFA
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Notes -->
+            {% if order.notes %}
+            <div class="border-l-2 border-black pl-6 py-4 mb-12 bg-gray-50">
+                <p class="text-[9px] uppercase tracking-widest text-gray-400 mb-2">Notes de la commande</p>
+                <p class="text-sm italic">{{ order.notes }}</p>
+            </div>
+            {% endif %}
+
+            <!-- Footer -->
+            <div class="text-center pt-8 border-t border-gray-200">
+                <p class="font-serif italic text-lg mb-4">Merci de votre visite !</p>
+
+                {% if mompay_enabled %}
+                <div class="mb-4 p-4 bg-yellow-50 border border-yellow-200 inline-block">
+                    <p class="text-[9px] uppercase tracking-widest text-yellow-700 mb-2">Paiement mobile disponible</p>
+                    <p class="text-sm font-semibold text-yellow-900">
+                        <i class="ri-wallet-3-line mr-1"></i>Payez avec MomPay
+                    </p>
+                    <p class="text-[9px] uppercase tracking-widest text-yellow-600 mt-1">
+                        Code USSD : <strong>*106*{{ mompay_merchant_code }}*{{ order.total_price|floatformat:0 }}#</strong>
+                    </p>
+                </div>
+                {% endif %}
+
+                <div class="space-y-1">
+                    {% if restaurant.email %}
+                    <p class="text-xs text-gray-500">
+                        <i class="ri-mail-line mr-1"></i> {{ restaurant.email }}
+                    </p>
+                    {% endif %}
+                    {% if restaurant.phone %}
+                    <p class="text-xs text-gray-500">
+                        <i class="ri-phone-line mr-1"></i> {{ restaurant.phone }}
+                    </p>
+                    {% endif %}
+                    {% if restaurant.website %}
+                    <p class="text-xs text-gray-500">
+                        <i class="ri-global-line mr-1"></i> {{ restaurant.website }}
+                    </p>
+                    {% endif %}
+                </div>
+
+                <p class="text-[9px] uppercase tracking-widest text-gray-400 mt-6">
+                    Document généré le {{ now|date:"d/m/Y à H:i" }}
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Auto-print if requested
+        document.addEventListener('DOMContentLoaded', function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('print') === '1') {
+                setTimeout(() => window.print(), 500);
+            }
+        });
+    </script>
+</body>
+</html>

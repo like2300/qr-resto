@@ -1,0 +1,70 @@
+{% extends 'menu/base.html' %}
+
+{% block title %}Mes commandes - Table {{ table.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">Mes commandes</h1>
+            <p class="text-gray-500">Table {{ table.name }}</p>
+        </div>
+        
+        <a href="{% url 'menu:menu' table.uuid %}" 
+           class="px-4 py-2 rounded-xl font-semibold text-white"
+           style="background-color: {{ table.color }};">
+            <i class="ri-add-line mr-1"></i> Commander
+        </a>
+    </div>
+    
+    {% if orders %}
+    <div class="space-y-4">
+        {% for order in orders %}
+        <a href="{% url 'menu:order_detail' table.uuid order.uuid %}" 
+           class="block bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-full flex items-center justify-center"
+                         style="background-color: {{ table.color }}20;">
+                        <i class="ri-receipt-line text-xl" style="color: {{ table.color }};"></i>
+                    </div>
+                    
+                    <div>
+                        <p class="font-semibold text-gray-900">
+                            Commande #{{ order.uuid|truncatechars:8 }}
+                        </p>
+                        <p class="text-sm text-gray-500">
+                            {{ order.created_at|date:"d/m/Y à H:i" }} • {{ order.items.count }} article(s)
+                        </p>
+                    </div>
+                </div>
+                
+                <div class="text-right">
+                    <span class="status-badge status-{{ order.status }}">
+                        {{ order.get_status_display }}
+                    </span>
+                    <p class="text-lg font-bold mt-2" style="color: {{ table.color }};">
+                        {{ order.total_price|floatformat:2 }}€
+                    </p>
+                </div>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="bg-white rounded-xl p-8 shadow-sm border border-gray-100 text-center">
+        <div class="w-20 h-20 mx-auto mb-4 rounded-full flex items-center justify-center bg-gray-100">
+            <i class="ri-receipt-line text-4xl text-gray-400"></i>
+        </div>
+        <h3 class="text-lg font-semibold text-gray-900 mb-2">Aucune commande</h3>
+        <p class="text-gray-500 mb-6">Vous n'avez pas encore passé de commande pour cette table.</p>
+        
+        <a href="{% url 'menu:menu' table.uuid %}" 
+           class="inline-flex items-center px-6 py-3 rounded-xl font-semibold text-white"
+           style="background-color: {{ table.color }};">
+            <i class="ri-add-line mr-2"></i> Passer une commande
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

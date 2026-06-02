@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Menu{% endblock %}</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+
+    <style>
+        :root { --font-serif: 'Playfair Display', serif; --font-sans: 'Inter', sans-serif; }
+        body { font-family: var(--font-sans); }
+        .font-serif { font-family: var(--font-serif); }
+        * { border-radius: 0 !important; }
+    </style>
+</head>
+<body class="bg-white">
+    <header class="bg-white border-b-2 border-black sticky top-0 z-[60]">
+        <div class="max-w-6xl mx-auto">
+            <div class="flex items-stretch justify-between h-20">
+                <div class="flex items-center gap-6 px-6 border-r border-gray-100 flex-1">
+                    {% if restaurant.logo %}
+                    <img src="{{ restaurant.logo.url }}" alt="{{ restaurant.name }}" class="h-[60px] object-cover">
+                    {% else %}
+                    <div class="w-10 h-10 flex items-center justify-center bg-gray-900">
+                        <i class="ri-restaurant-2-line text-lg text-white"></i>
+                    </div>
+                    {% endif %}
+                    <div class="flex flex-col">
+                        <h1 class="font-serif text-base uppercase tracking-[0.25em] leading-none text-black">
+                            {{ restaurant.name }}
+                        </h1>
+                    </div>
+                </div>
+
+                <div class="flex flex-col justify-center items-center px-8 bg-gray-50 border-l border-gray-100 min-w-[120px]">
+                    <span class="text-[9px] uppercase tracking-widest text-gray-400 mb-1">Table</span>
+                    <p class="font-serif italic text-lg text-black leading-none">{{ table.name }}</p>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Élément pour Google Translate - COMPLETEMENT INVISIBLE -->
+    <div id="google_translate_element"></div>
+
+    <main class="max-w-4xl mx-auto">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Messages d'alerte (Toast) -->
+    {% if messages %}
+    <div class="fixed top-6 right-6 z-[100] space-y-2">
+        {% for message in messages %}
+        <div class="animate-slide-up px-6 py-4 rounded-lg shadow-2xl z-[100] {% if message.tags == 'success' %}bg-green-600 text-white{% elif message.tags == 'error' %}bg-red-600 text-white{% else %}bg-blue-600 text-white{% endif %}">
+            <div class="flex items-center gap-2">
+                {% if message.tags == 'success' %}
+                    <i class="ri-check-line"></i>
+                {% elif message.tags == 'error' %}
+                    <i class="ri-error-warning-line"></i>
+                {% else %}
+                    <i class="ri-information-line"></i>
+                {% endif %}
+                <span class="text-sm">{{ message }}</span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Auto-hide messages -->
+    <script>
+        document.querySelectorAll('.animate-slide-up').forEach(function(el) {
+            setTimeout(function() {
+                el.style.transition = 'opacity 0.3s';
+                el.style.opacity = '0';
+                setTimeout(function() { el.remove(); }, 300);
+            }, 5000);
+        });
+    </script>
+</body>
+</html>

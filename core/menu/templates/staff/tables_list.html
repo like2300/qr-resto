@@ -1,0 +1,143 @@
+{% extends 'staff/base.html' %}
+
+{% block title %}Tables - {{ restaurant.name }}{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="mb-10">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-4xl font-serif uppercase tracking-widest">Tables</h1>
+            <p class="text-xs uppercase tracking-widest text-gray-500 mt-3">Gérez l'état des tables</p>
+        </div>
+        <a href="{% url 'staff:dashboard' %}" class="btn-secondary">
+            <i class="ri-arrow-left-line mr-2"></i>Retour
+        </a>
+    </div>
+</div>
+
+<!-- Stats -->
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+    <div class="card p-6">
+        <div class="flex items-center gap-4">
+            <div class="w-14 h-14 flex items-center justify-center bg-gray-100">
+                <i class="ri-restaurant-2-line text-3xl"></i>
+            </div>
+            <div>
+                <p class="text-3xl font-serif">{{ tables_count }}</p>
+                <p class="text-xs uppercase tracking-widest text-gray-500 mt-1">Total tables</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="card p-6">
+        <div class="flex items-center gap-4">
+            <div class="w-14 h-14 flex items-center justify-center bg-green-100">
+                <i class="ri-check-circle-line text-3xl text-green-600"></i>
+            </div>
+            <div>
+                <p class="text-3xl font-serif">{{ free_count }}</p>
+                <p class="text-xs uppercase tracking-widest text-gray-500 mt-1">Tables libres</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="card p-6">
+        <div class="flex items-center gap-4">
+            <div class="w-14 h-14 flex items-center justify-center bg-orange-100">
+                <i class="ri-armchair-line text-3xl text-orange-600"></i>
+            </div>
+            <div>
+                <p class="text-3xl font-serif">{{ occupied_count }}</p>
+                <p class="text-xs uppercase tracking-widest text-gray-500 mt-1">Tables occupées</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tables grid -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+    {% for table in tables %}
+    {% with is_occupied=table.active_orders_count|add:0 %}
+    <div class="card overflow-hidden border-2 {% if is_occupied > 0 or table.is_occupied %}border-orange-200{% else %}border-green-200{% endif %}">
+        <!-- Card header -->
+        <div class="p-4 {% if is_occupied > 0 or table.is_occupied %}bg-orange-50{% else %}bg-green-50{% endif %} border-b {% if is_occupied > 0 or table.is_occupied %}border-orange-100{% else %}border-green-100{% endif %}">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 flex items-center justify-center font-serif text-xl text-white"
+                         style="background-color: {{ table.color }};">
+                        {{ table.name|slice:":1" }}
+                    </div>
+                    <div>
+                        <h3 class="font-serif uppercase tracking-widest text-sm">Table {{ table.name }}</h3>
+                        <p class="text-xs text-gray-500 mt-0.5">{{ table.capacity }} places</p>
+                    </div>
+                </div>
+                <span class="px-3 py-1 text-xs uppercase tracking-widest {% if is_occupied > 0 or table.is_occupied %}bg-orange-200 text-orange-700{% else %}bg-green-200 text-green-700{% endif %}">
+                    {% if is_occupied > 0 or table.is_occupied %}Occupée{% else %}Libre{% endif %}
+                </span>
+            </div>
+        </div>
+
+        <!-- Card body -->
+        <div class="p-4">
+            <!-- Active orders -->
+            {% if is_occupied > 0 %}
+            <div class="mb-4">
+                <p class="text-xs uppercase tracking-widest text-gray-500 mb-2">Commandes en cours</p>
+                <a href="{% url 'staff:orders_list' %}?table={{ table.id }}"
+                   class="block p-3 bg-gray-50 hover:bg-gray-100 transition-colors border border-gray-100">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-medium">{{ is_occupied }} commande(s)</span>
+                        <i class="ri-arrow-right-line"></i>
+                    </div>
+                </a>
+            </div>
+            {% else %}
+            <div class="mb-4 text-center py-6 text-gray-400 border border-dashed border-gray-200">
+                <i class="ri-inbox-line text-3xl mb-2"></i>
+                <p class="text-xs uppercase tracking-widest">Aucune commande</p>
+            </div>
+            {% endif %}
+
+            <!-- Actions -->
+            <div class="space-y-2">
+                <!-- Toggle occupied -->
+                <form method="post" action="{% url 'staff:toggle_table_occupied' table.uuid %}">
+                    {% csrf_token %}
+                    <button type="submit"
+                            class="w-full px-4 py-3 text-xs uppercase tracking-widest transition-colors border {% if is_occupied > 0 or table.is_occupied %}bg-green-50 hover:bg-green-100 border-green-200 text-green-700{% else %}bg-orange-50 hover:bg-orange-100 border-orange-200 text-orange-700{% endif %}">
+                        <i class="ri-{% if is_occupied > 0 or table.is_occupied %}check-line{% else %}armchair-line{% endif %} mr-2"></i>
+                        {% if is_occupied > 0 or table.is_occupied %}Marquer comme libre{% else %}Marquer comme occupée{% endif %}
+                    </button>
+                </form>
+
+                <!-- Clear table -->
+                {% if is_occupied > 0 or table.is_occupied %}
+                <form method="post" action="{% url 'staff:clear_table' table.uuid %}"
+                      onsubmit="return confirm('Vider cette table ? Les commandes en cours seront marquées comme servies.');">
+                    {% csrf_token %}
+                    <button type="submit"
+                            class="w-full px-4 py-3 bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 text-xs uppercase tracking-widest transition-colors">
+                        <i class="ri-delete-bin-line mr-2"></i>Vider la table
+                    </button>
+                </form>
+                {% endif %}
+
+                <!-- QR Code -->
+                <a href="{{ table.qr_code_url }}" target="_blank"
+                   class="block w-full px-4 py-3 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 text-xs uppercase tracking-widest transition-colors text-center">
+                    <i class="ri-qr-code-line mr-2"></i>QR Code
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endwith %}
+    {% empty %}
+    <div class="col-span-full text-center py-16">
+        <i class="ri-restaurant-2-line text-6xl text-gray-300 mb-4"></i>
+        <p class="text-gray-500 text-xs uppercase tracking-widest">Aucune table configurée</p>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

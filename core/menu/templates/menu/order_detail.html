@@ -1,0 +1,892 @@
+{% extends 'menu/base.html' %}
+
+{% block title %}Commande #{{ order.uuid|truncatechars:8 }} - Table {{ table.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto pb-40">
+    <!-- Order Header -->
+    <div class="mb-6 pb-6 border-b border-gray-200">
+        <div class="flex items-center justify-between mb-4">
+            <div class="mt-8">
+                <h1 class="text-3xl font-serif uppercase tracking-widest">Commande</h1>
+                <p class="text-xs uppercase tracking-widest text-gray-500 mt-2">#{{ order.uuid|truncatechars:8 }}</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-4 text-xs uppercase tracking-widest text-gray-500 flex-wrap">
+            <span class="flex items-center gap-1">
+                <i class="ri-table-line"></i>
+                Table {{ table.name }}
+            </span>
+            <span class="flex items-center gap-1">
+                <i class="ri-time-line"></i>
+                {{ order.created_at|date:"d/m/Y à H:i" }}
+            </span>
+        </div>
+    </div>
+
+    <!-- Order Items -->
+    <div class="mb-6 pb-6 border-b border-gray-200">
+        <h2 class="text-lg font-serif uppercase tracking-widest mb-6">Détail de la commande</h2>
+
+        <div class="space-y-4">
+            {% for item in order.items.all %}
+            <div class="flex items-start gap-4 pb-4 border-b border-gray-100 last:border-0 last:pb-0">
+                <div class="w-12 h-12 flex items-center justify-center flex-shrink-0 font-serif text-white"
+                     style="background-color: {{ table.color }};">
+                    {{ item.quantity }}x
+                </div>
+
+                <div class="flex-1">
+                    <p class="font-serif uppercase tracking-widest text-sm">{{ item.menu_item.name }}</p>
+                    {% if item.notes %}
+                    <p class="text-sm text-gray-500 mt-1">
+                        <i class="ri-message-line mr-1"></i>{{ item.notes }}
+                    </p>
+                    {% endif %}
+                    <p class="text-sm text-gray-500 mt-1">
+                        {% if selected_currency == 'XAF' or selected_currency == 'XOF' %}
+                            {{ item.unit_price|floatformat:0 }} {{ currency_symbol }} × {{ item.quantity }}
+                            = <span class="font-serif font-medium">{{ item.subtotal|floatformat:0 }} {{ currency_symbol }}</span>
+                        {% else %}
+                            {% widthratio item.unit_price 1 exchange_rate as unit_price_converted %}
+                            {% widthratio item.subtotal 1 exchange_rate as subtotal_converted %}
+                            {{ unit_price_converted|floatformat:2 }} {{ currency_symbol }} × {{ item.quantity }}
+                            = <span class="font-serif font-medium">{{ subtotal_converted|floatformat:2 }} {{ currency_symbol }}</span>
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        {% if order.notes %}
+        <div class="mt-6 pt-4 border-t border-gray-100">
+            <p class="text-sm text-gray-500">
+                <i class="ri-message-line mr-1"></i>
+                <strong>Notes:</strong> {{ order.notes }}
+            </p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Order Total -->
+    <div class="mb-6 pb-6 border-b border-gray-200">
+        <div class="flex items-center justify-between">
+            <span class="text-xs uppercase tracking-widest text-gray-500">Total</span>
+            {% if selected_currency == 'XAF' or selected_currency == 'XOF' %}
+                <span class="text-3xl font-serif">{{ order.total_price|floatformat:0 }} {{ currency_symbol }}</span>
+            {% else %}
+                {% widthratio order.total_price 1 exchange_rate as total_converted %}
+                <span class="text-3xl font-serif">{{ total_converted|floatformat:2 }} {{ currency_symbol }}</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Status -->
+    <div class="mb-6">
+        <span class="status-badge {% if order.status == 'pending' %}status-pending{% elif order.status == 'confirmed' %}status-confirmed{% elif order.status == 'preparing' %}status-preparing{% elif order.status == 'ready' %}status-ready{% elif order.status == 'served' %}status-served{% else %}status-cancelled{% endif %}">
+            {{ order.get_status_display }}
+        </span>
+    </div>
+
+    <!-- Thank you message -->
+    <div class="mb-6 p-6 bg-green-50 border border-green-200 rounded-lg">
+        <div class="flex items-start gap-3">
+            <i class="ri-check-double-line text-2xl text-green-600 mt-1"></i>
+            <div>
+                <h3 class="font-serif uppercase tracking-widest text-green-800 mb-2">Merci de votre confiance</h3>
+                <p class="text-sm text-green-700 leading-relaxed">
+                    Votre commande est terminée. Cette table sera bientôt attribuée à d'autres clients.
+                    Nous espérons vous revoir très bientôt !
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="flex gap-3 flex-wrap">
+        <a href="{% url 'menu:menu' table.uuid %}"
+           class="px-4 py-3 border border-gray-300 text-center text-xs uppercase tracking-widest hover:bg-gray-50 transition-colors">
+            <i class="ri-arrow-left-line mr-2"></i>Retour au menu
+        </a>
+
+        {% if mompay_enabled %}
+        <button type="button" onclick="initiateMomPay()"
+                class="flex-1 px-4 py-3 bg-yellow-400 hover:bg-yellow-500 text-black text-center text-xs uppercase tracking-widest font-bold transition-colors min-w-[140px]">
+            <i class="ri-wallet-3-line mr-2"></i>Payer avec MomPay
+        </button>
+        {% endif %}
+
+        <button type="button" onclick="requestBill()"
+                class="flex-1 px-4 py-3 bg-gray-900 text-white text-center text-xs uppercase tracking-widest hover:bg-gray-800 transition-colors">
+            <i class="ri-file-text-line mr-2"></i>Demander l'addition
+        </button>
+    </div>
+</div>
+
+<!-- Bill Request Notification -->
+<div id="bill-notification" class="fixed inset-0 z-[100] hidden">
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
+    <div class="absolute inset-0 flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-md rounded-xl shadow-2xl transform scale-95 opacity-0 transition-all duration-300" id="bill-notification-content">
+            <div class="p-6 text-center">
+                <div class="w-20 h-20 mx-auto mb-4 flex items-center justify-center bg-green-100 rounded-full">
+                    <i class="ri-file-text-line text-4xl text-green-600"></i>
+                </div>
+                <h3 class="text-lg font-serif uppercase tracking-widest mb-4">Addition demandée</h3>
+                <p class="text-sm text-gray-600 leading-relaxed mb-6">
+                    Un de nos employés arrive pour vous apporter la facture.
+                    <br><br>
+                    Temps d'attente estimé : <strong>1 à 2 minutes</strong>.
+                    <br>
+                    Merci de patienter.
+                </p>
+                <button type="button" onclick="closeBillNotification()" class="w-full px-4 py-3 bg-gray-900 text-white text-xs uppercase tracking-widest hover:bg-gray-800 transition-colors">
+                    <i class="ri-check-line mr-2"></i>Compris
+                </button>
+
+                <!-- Test voice button (hidden, for debugging) -->
+                <button type="button" onclick="testVoice()" class="mt-4 text-xs text-gray-400 hover:text-gray-600 underline">
+                    🔊 Tester la voix
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Floating Action Button - Visible on all screens -->
+<button type="button" onclick="toggleFAB()" id="fab-toggle"
+        class="fixed bottom-28 right-6 z-40 w-14 h-14 bg-gradient-to-br from-blue-600 to-purple-600 text-white shadow-2xl hover:from-blue-700 hover:to-purple-700 transition-all rounded-full flex items-center justify-center">
+    <i class="ri-add-line text-3xl" id="fab-icon"></i>
+</button>
+
+<!-- Floating Action Buttons Container - Hidden by default -->
+<div class="fixed bottom-28 right-6 z-50 flex flex-col gap-3 items-end" id="fab-container" style="display: none;">
+    <!-- Close Button -->
+    <button type="button" onclick="toggleFAB()"
+            class="w-14 h-14 bg-red-500 text-white shadow-2xl hover:bg-red-600 transition-all rounded-full flex items-center justify-center transform scale-0 opacity-0 fab-item">
+        <i class="ri-close-line text-3xl"></i>
+    </button>
+
+    <!-- Share QR Code Button -->
+    <button type="button" onclick="toggleShareModal()"
+            class="w-14 h-14 bg-green-600 text-white shadow-2xl hover:bg-green-700 transition-all rounded-full flex items-center justify-center transform scale-0 opacity-0 fab-item">
+        <i class="ri-qr-code-line text-2xl"></i>
+    </button>
+
+    <!-- Language Selector Button -->
+    <button type="button" onclick="toggleLanguageModal()"
+            class="w-14 h-14 bg-blue-600 text-white shadow-2xl hover:bg-blue-700 transition-all rounded-full flex items-center justify-center transform scale-0 opacity-0 fab-item">
+        <i class="ri-translate-2 text-2xl"></i>
+    </button>
+
+    <!-- Currency Selector Button -->
+    <button type="button" onclick="toggleCurrencyModal()"
+            class="w-14 h-14 bg-purple-600 text-white shadow-2xl hover:bg-purple-700 transition-all rounded-full flex items-center justify-center transform scale-0 opacity-0 fab-item">
+        <i class="ri-coins-line text-2xl"></i>
+        <span class="absolute -top-1 -right-1 w-5 h-5 bg-yellow-400 text-black text-[9px] font-bold rounded-full flex items-center justify-center">{{ selected_currency }}</span>
+    </button>
+
+    <!-- Notes Button -->
+    <button type="button" onclick="toggleNotesSidebar()"
+            class="w-14 h-14 bg-black text-white shadow-2xl hover:bg-gray-800 transition-all rounded-full flex items-center justify-center transform scale-0 opacity-0 fab-item">
+        <i class="ri-message-2-line text-2xl"></i>
+        <span id="notes-indicator" class="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full hidden"></span>
+    </button>
+</div>
+
+<!-- Share QR Code Modal -->
+<div id="share-modal" class="fixed inset-0 z-[100] hidden">
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="toggleShareModal()"></div>
+    <div class="absolute inset-0 flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-md rounded-xl shadow-2xl transform scale-95 opacity-0 transition-all duration-300" id="share-modal-content">
+            <div class="p-6 border-b border-gray-100 flex justify-between items-center">
+                <div>
+                    <h3 class="font-serif text-xl italic text-black">Partager le menu</h3>
+                    <p class="text-[9px] uppercase tracking-widest text-gray-400 mt-1">Table {{ table.name }}</p>
+                </div>
+                <button type="button" onclick="toggleShareModal()" class="text-gray-400 hover:text-black">
+                    <i class="ri-close-line text-2xl"></i>
+                </button>
+            </div>
+
+            <div class="p-6">
+                <!-- QR Code -->
+                <div class="bg-gray-50 p-6 rounded-lg mb-6">
+                    <img id="qr-code-image" src="" alt="QR Code Menu" class="w-48 h-48 mx-auto">
+                </div>
+
+                <!-- Menu URL -->
+                <div class="mb-4">
+                    <label class="form-label">Lien du menu</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="menu-url" readonly
+                               class="form-input text-[10px] uppercase tracking-widest bg-gray-50"
+                               value="{{ request.build_absolute_uri }}">
+                        <button type="button" onclick="copyMenuUrl()"
+                                class="px-4 py-2 bg-black text-white text-[10px] uppercase tracking-widest hover:bg-gray-800 transition-colors">
+                            <i class="ri-file-copy-line"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Share Buttons -->
+                <div class="flex gap-3">
+                    <button type="button" onclick="shareViaWhatsApp()"
+                            class="flex-1 py-3 bg-green-500 hover:bg-green-600 text-white text-[10px] uppercase tracking-widest font-bold transition-colors">
+                        <i class="ri-whatsapp-line mr-2"></i>WhatsApp
+                    </button>
+                    <button type="button" onclick="shareViaSMS()"
+                            class="flex-1 py-3 bg-blue-500 hover:bg-blue-600 text-white text-[10px] uppercase tracking-widest font-bold transition-colors">
+                        <i class="ri-message-2-line mr-2"></i>SMS
+                    </button>
+                </div>
+
+                <p class="text-[9px] uppercase tracking-widest text-gray-400 mt-4 text-center">
+                    Scannez le QR code ou partagez le lien
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Notes Sidebar -->
+<div id="notes-sidebar" class="fixed inset-0 z-[100] hidden">
+    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="toggleNotesSidebar()"></div>
+    <div class="absolute right-0 top-0 bottom-0 w-full max-w-sm bg-white shadow-2xl transform translate-x-full transition-transform duration-300 ease-in-out p-8 flex flex-col">
+        <div class="flex justify-between items-center mb-8">
+            <div>
+                <h3 class="font-serif text-xl italic text-black">Précisions</h3>
+                <p class="text-[9px] uppercase tracking-widest text-gray-400 mt-1">Personnalisez votre commande</p>
+            </div>
+            <button type="button" onclick="toggleNotesSidebar()" class="hover:rotate-90 transition-transform duration-300">
+                <i class="ri-close-line text-2xl"></i>
+            </button>
+        </div>
+
+        <div class="mb-6">
+            <p class="text-[9px] uppercase tracking-[0.2em] text-gray-400 mb-3">Suggestions rapides</p>
+            <div class="flex flex-wrap gap-2">
+                <button type="button" onclick="addSuggestion('Sans gluten')" class="px-3 py-2 border border-gray-100 text-[10px] uppercase tracking-wider hover:border-black transition-colors bg-gray-50">Sans gluten</button>
+                <button type="button" onclick="addSuggestion('Cuisson saignante')" class="px-3 py-2 border border-gray-100 text-[10px] uppercase tracking-wider hover:border-black transition-colors bg-gray-50">Saignant</button>
+                <button type="button" onclick="addSuggestion('Pas d\'oignon')" class="px-3 py-2 border border-gray-100 text-[10px] uppercase tracking-wider hover:border-black transition-colors bg-gray-50">Sans oignon</button>
+            </div>
+        </div>
+
+        <textarea id="notes-textarea" rows="10"
+                  placeholder="Indiquez ici vos allergies ou préférences particulières..."
+                  class="w-full border-black border-l-2 border-t-0 border-r-0 border-b-0 p-4 text-sm focus:ring-0 resize-none bg-gray-50/50 flex-1 mb-8"></textarea>
+
+        <button type="button" onclick="saveNotes()"
+                class="w-full py-5 bg-black text-white text-[10px] uppercase tracking-[0.3em] font-bold">
+            Enregistrer les notes
+        </button>
+    </div>
+</div>
+
+<!-- Language Modal -->
+<div id="language-modal" class="fixed inset-0 z-[100] hidden">
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="toggleLanguageModal()"></div>
+    <div class="absolute inset-0 flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-md rounded-xl shadow-2xl transform scale-95 opacity-0 transition-all duration-300" id="language-modal-content">
+            <div class="p-6 border-b border-gray-100 flex justify-between items-center">
+                <div>
+                    <h3 class="font-serif text-xl italic text-black">Langue / Language</h3>
+                    <p class="text-[9px] uppercase tracking-widest text-gray-400 mt-1">Choisissez votre langue</p>
+                </div>
+                <button type="button" onclick="toggleLanguageModal()" class="text-gray-400 hover:text-black">
+                    <i class="ri-close-line text-2xl"></i>
+                </button>
+            </div>
+
+            <div class="p-6 space-y-3">
+                <button type="button" onclick="setLanguage('fr')" class="w-full flex items-center gap-4 p-4 hover:bg-gray-50 rounded-lg transition-colors border border-gray-100">
+                    <span class="text-3xl">🇫🇷</span>
+                    <div class="text-left">
+                        <p class="font-semibold text-gray-900">Français</p>
+                        <p class="text-xs text-gray-500">French</p>
+                    </div>
+                    <i class="ri-check-line text-xl text-blue-500 ml-auto hidden" id="check-fr"></i>
+                </button>
+                <button type="button" onclick="setLanguage('en')" class="w-full flex items-center gap-4 p-4 hover:bg-gray-50 rounded-lg transition-colors border border-gray-100">
+                    <span class="text-3xl">🇬🇧</span>
+                    <div class="text-left">
+                        <p class="font-semibold text-gray-900">English</p>
+                        <p class="text-xs text-gray-500">Anglais</p>
+                    </div>
+                    <i class="ri-check-line text-xl text-blue-500 ml-auto hidden" id="check-en"></i>
+                </button>
+                <button type="button" onclick="setLanguage('es')" class="w-full flex items-center gap-4 p-4 hover:bg-gray-50 rounded-lg transition-colors border border-gray-100">
+                    <span class="text-3xl">🇪🇸</span>
+                    <div class="text-left">
+                        <p class="font-semibold text-gray-900">Español</p>
+                        <p class="text-xs text-gray-500">Espagnol</p>
+                    </div>
+                    <i class="ri-check-line text-xl text-blue-500 ml-auto hidden" id="check-es"></i>
+                </button>
+                <button type="button" onclick="setLanguage('de')" class="w-full flex items-center gap-4 p-4 hover:bg-gray-50 rounded-lg transition-colors border border-gray-100">
+                    <span class="text-3xl">🇩🇪</span>
+                    <div class="text-left">
+                        <p class="font-semibold text-gray-900">Deutsch</p>
+                        <p class="text-xs text-gray-500">Allemand</p>
+                    </div>
+                    <i class="ri-check-line text-xl text-blue-500 ml-auto hidden" id="check-de"></i>
+                </button>
+                <button type="button" onclick="setLanguage('ar')" class="w-full flex items-center gap-4 p-4 hover:bg-gray-50 rounded-lg transition-colors border border-gray-100">
+                    <span class="text-3xl">🇸🇦</span>
+                    <div class="text-left">
+                        <p class="font-semibold text-gray-900">العربية</p>
+                        <p class="text-xs text-gray-500">Arabe</p>
+                    </div>
+                    <i class="ri-check-line text-xl text-blue-500 ml-auto hidden" id="check-ar"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Currency Modal -->
+<div id="currency-modal" class="fixed inset-0 z-[100] hidden">
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="toggleCurrencyModal()"></div>
+    <div class="absolute inset-0 flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-md rounded-xl shadow-2xl transform scale-95 opacity-0 transition-all duration-300" id="currency-modal-content">
+            <div class="p-6 border-b border-gray-100 flex justify-between items-center">
+                <div>
+                    <h3 class="font-serif text-xl italic text-black">Devise / Currency</h3>
+                    <p class="text-[9px] uppercase tracking-widest text-gray-400 mt-1">Choisissez votre devise</p>
+                </div>
+                <button type="button" onclick="toggleCurrencyModal()" class="text-gray-400 hover:text-black">
+                    <i class="ri-close-line text-2xl"></i>
+                </button>
+            </div>
+
+            <div class="p-6 space-y-3">
+                <button type="button" onclick="setCurrency('XAF')" class="w-full flex items-center gap-4 p-4 hover:bg-gray-50 rounded-lg transition-colors border border-gray-100">
+                    <span class="text-2xl font-bold text-purple-600 w-12">FCFA</span>
+                    <div class="text-left flex-1">
+                        <p class="font-semibold text-gray-900">Franc CFA</p>
+                        <p class="text-xs text-gray-500">Devise par défaut ★</p>
+                    </div>
+                    <i class="ri-check-line text-xl text-purple-500 hidden" id="check-xaf"></i>
+                </button>
+                <button type="button" onclick="setCurrency('EUR')" class="w-full flex items-center gap-4 p-4 hover:bg-gray-50 rounded-lg transition-colors border border-gray-100">
+                    <span class="text-2xl font-bold text-purple-600 w-12">€</span>
+                    <div class="text-left flex-1">
+                        <p class="font-semibold text-gray-900">Euro</p>
+                        <p class="text-xs text-gray-500">European Union</p>
+                    </div>
+                    <i class="ri-check-line text-xl text-purple-500 hidden" id="check-eur"></i>
+                </button>
+                <button type="button" onclick="setCurrency('USD')" class="w-full flex items-center gap-4 p-4 hover:bg-gray-50 rounded-lg transition-colors border border-gray-100">
+                    <span class="text-2xl font-bold text-purple-600 w-12">$</span>
+                    <div class="text-left flex-1">
+                        <p class="font-semibold text-gray-900">US Dollar</p>
+                        <p class="text-xs text-gray-500">Dollar américain</p>
+                    </div>
+                    <i class="ri-check-line text-xl text-purple-500 hidden" id="check-usd"></i>
+                </button>
+                <button type="button" onclick="setCurrency('GBP')" class="w-full flex items-center gap-4 p-4 hover:bg-gray-50 rounded-lg transition-colors border border-gray-100">
+                    <span class="text-2xl font-bold text-purple-600 w-12">£</span>
+                    <div class="text-left flex-1">
+                        <p class="font-semibold text-gray-900">British Pound</p>
+                        <p class="text-xs text-gray-500">Livre sterling</p>
+                    </div>
+                    <i class="ri-check-line text-xl text-purple-500 hidden" id="check-gbp"></i>
+                </button>
+                <button type="button" onclick="setCurrency('CHF')" class="w-full flex items-center gap-4 p-4 hover:bg-gray-50 rounded-lg transition-colors border border-gray-100">
+                    <span class="text-2xl font-bold text-purple-600 w-12">CHF</span>
+                    <div class="text-left flex-1">
+                        <p class="font-semibold text-gray-900">Swiss Franc</p>
+                        <p class="text-xs text-gray-500">Franc suisse</p>
+                    </div>
+                    <i class="ri-check-line text-xl text-purple-500 hidden" id="check-chf"></i>
+                </button>
+                <button type="button" onclick="setCurrency('CAD')" class="w-full flex items-center gap-4 p-4 hover:bg-gray-50 rounded-lg transition-colors border border-gray-100">
+                    <span class="text-2xl font-bold text-purple-600 w-12">C$</span>
+                    <div class="text-left flex-1">
+                        <p class="font-semibold text-gray-900">Canadian Dollar</p>
+                        <p class="text-xs text-gray-500">Dollar canadien</p>
+                    </div>
+                    <i class="ri-check-line text-xl text-purple-500 hidden" id="check-cad"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentExchangeRate = {{ exchange_rate|default:"1.0" }};
+    let currentCurrency = '{{ selected_currency }}';
+    let currencySymbol = '{{ currency_symbol }}';
+    let currentLanguage = localStorage.getItem('selected_language') || 'fr';
+    let fabOpen = false;
+
+    // Toggle FAB
+    function toggleFAB() {
+        const fabToggle = document.getElementById('fab-toggle');
+        const fabIcon = document.getElementById('fab-icon');
+        const fabContainer = document.getElementById('fab-container');
+        const fabItems = document.querySelectorAll('.fab-item');
+
+        fabOpen = !fabOpen;
+
+        if (fabOpen) {
+            // Change icon to X
+            fabIcon.classList.remove('ri-add-line');
+            fabIcon.classList.add('ri-close-line');
+
+            // Show container
+            fabContainer.style.display = 'flex';
+
+            // Show items with staggered animation
+            fabItems.forEach((item, index) => {
+                setTimeout(() => {
+                    item.classList.remove('scale-0', 'opacity-0');
+                    item.classList.add('scale-100', 'opacity-100');
+                }, (index + 1) * 80);
+            });
+        } else {
+            // Hide items
+            fabItems.forEach(item => {
+                item.classList.remove('scale-100', 'opacity-100');
+                item.classList.add('scale-0', 'opacity-0');
+            });
+
+            // Change icon back to + and hide container after delay
+            setTimeout(() => {
+                fabIcon.classList.remove('ri-close-line');
+                fabIcon.classList.add('ri-add-line');
+                fabContainer.style.display = 'none';
+            }, 300);
+        }
+    }
+
+    // Toggle Language Modal
+    function toggleLanguageModal() {
+        const modal = document.getElementById('language-modal');
+        const content = document.getElementById('language-modal-content');
+
+        if (fabOpen) toggleFAB();
+
+        if (modal.classList.contains('hidden')) {
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                content.classList.remove('scale-95', 'opacity-0');
+                content.classList.add('scale-100', 'opacity-100');
+            }, 10);
+            updateLanguageChecks();
+        } else {
+            content.classList.remove('scale-100', 'opacity-100');
+            content.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        }
+    }
+
+    // Toggle Currency Modal
+    function toggleCurrencyModal() {
+        const modal = document.getElementById('currency-modal');
+        const content = document.getElementById('currency-modal-content');
+
+        if (fabOpen) toggleFAB();
+
+        if (modal.classList.contains('hidden')) {
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                content.classList.remove('scale-95', 'opacity-0');
+                content.classList.add('scale-100', 'opacity-100');
+            }, 10);
+            updateCurrencyChecks();
+        } else {
+            content.classList.remove('scale-100', 'opacity-100');
+            content.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        }
+    }
+
+    // Set Language
+    function setLanguage(lang) {
+        currentLanguage = lang;
+        localStorage.setItem('selected_language', lang);
+
+        // Fermer la modal
+        toggleLanguageModal();
+
+        // Mettre à jour les checks
+        updateLanguageChecks();
+
+        // Changer la direction pour l'arabe
+        if (lang === 'ar') {
+            document.body.setAttribute('dir', 'rtl');
+        } else {
+            document.body.setAttribute('dir', 'ltr');
+        }
+        
+        console.log('🌐 Language changed to:', lang);
+        
+        // Reload the page to apply Google Translate
+        setTimeout(function() {
+            window.location.reload();
+        }, 300);
+    }
+
+    // Update Language Checks
+    function updateLanguageChecks() {
+        document.querySelectorAll('[id^="check-"]').forEach(el => el.classList.add('hidden'));
+        const check = document.getElementById('check-' + currentLanguage);
+        if (check) check.classList.remove('hidden');
+    }
+
+    // Set Currency
+    function setCurrency(currency) {
+        // Recharger la page avec la nouvelle devise
+        const url = new URL(window.location);
+        url.searchParams.set('currency', currency);
+        window.location.href = url.toString();
+    }
+
+    // Update Currency Checks
+    function updateCurrencyChecks() {
+        document.querySelectorAll('[id^="check-"]').forEach(el => el.classList.add('hidden'));
+        const check = document.getElementById('check-' + currency.toLowerCase());
+        if (check) check.classList.remove('hidden');
+    }
+
+    // Toggle Notes Sidebar
+    function toggleNotesSidebar() {
+        const s = document.getElementById('notes-sidebar');
+        const p = s.querySelector('.transform');
+        if (s.classList.contains('hidden')) {
+            if (fabOpen) toggleFAB();
+            s.classList.remove('hidden');
+            setTimeout(() => p.classList.remove('translate-x-full'), 10);
+        } else {
+            p.classList.add('translate-x-full');
+            setTimeout(() => s.classList.add('hidden'), 300);
+        }
+    }
+
+    // Add Suggestion
+    function addSuggestion(text) {
+        const textarea = document.getElementById('notes-textarea');
+        const currentValue = textarea.value.trim();
+        if (currentValue.length > 0) {
+            textarea.value = currentValue + ", " + text;
+        } else {
+            textarea.value = text;
+        }
+    }
+
+    // Save Notes
+    function saveNotes() {
+        const val = document.getElementById('notes-textarea').value;
+        document.getElementById('hidden-notes').value = val;
+        document.getElementById('notes-indicator').classList.toggle('hidden', !val.trim());
+        toggleNotesSidebar();
+    }
+
+    // Share QR Code Modal
+    function toggleShareModal() {
+        const modal = document.getElementById('share-modal');
+        const content = document.getElementById('share-modal-content');
+
+        if (fabOpen) toggleFAB();
+
+        if (modal.classList.contains('hidden')) {
+            modal.classList.remove('hidden');
+            setTimeout(function() {
+                content.classList.remove('scale-95', 'opacity-0');
+                content.classList.add('scale-100', 'opacity-100');
+            }, 10);
+            generateQRCode();
+        } else {
+            content.classList.remove('scale-100', 'opacity-100');
+            content.classList.add('scale-95', 'opacity-0');
+            setTimeout(function() {
+                modal.classList.add('hidden');
+            }, 300);
+        }
+    }
+
+    function generateQRCode() {
+        const menuUrl = window.location.href;
+        const qrCodeImage = document.getElementById('qr-code-image');
+        const qrCodeApi = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=';
+        qrCodeImage.src = qrCodeApi + encodeURIComponent(menuUrl);
+    }
+
+    function copyMenuUrl() {
+        const urlInput = document.getElementById('menu-url');
+        urlInput.select();
+        urlInput.setSelectionRange(0, 99999);
+        document.execCommand('copy');
+        const originalBg = urlInput.style.backgroundColor;
+        urlInput.style.backgroundColor = '#dcfce7';
+        setTimeout(function() {
+            urlInput.style.backgroundColor = originalBg;
+        }, 500);
+    }
+
+    function shareViaWhatsApp() {
+        const menuUrl = encodeURIComponent(window.location.href);
+        const text = encodeURIComponent('Découvrez notre menu ! Table {{ table.name }}');
+        window.open('https://wa.me/?text=' + text + ' ' + menuUrl, '_blank');
+    }
+
+    function shareViaSMS() {
+        const menuUrl = window.location.href;
+        const text = 'Découvrez notre menu ! Table {{ table.name }} ' + menuUrl;
+        window.open('sms:?body=' + encodeURIComponent(text), '_blank');
+    }
+
+    // Request Bill - Send notification to staff
+    function requestBill() {
+        console.log('Bill requested for table:', '{{ table.name }}');
+
+        const tableNumber = '{{ table.name }}';
+        const orderUuid = '{{ order.uuid }}';
+
+        // Send notification to staff via API
+        fetch('{% url "menu:request_bill" table.uuid order.uuid %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+            }
+        })
+        .then(response => {
+            console.log('API response status:', response.status);
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return { success: true };
+        })
+        .then(data => {
+            console.log('API response data:', data);
+            if (data.success) {
+                // Show notification modal to customer
+                showBillNotification();
+
+                // Play audio message for customer only
+                playCustomerMessage();
+            } else {
+                // Fallback: show modal anyway
+                console.error('API error:', data.error);
+                showBillNotification();
+                playCustomerMessage();
+            }
+        })
+        .catch(error => {
+            console.error('Fetch error:', error);
+            // Fallback: show modal anyway even if API fails
+            showBillNotification();
+            playCustomerMessage();
+        });
+    }
+
+    function showBillNotification() {
+        const modal = document.getElementById('bill-notification');
+        const content = document.getElementById('bill-notification-content');
+
+        modal.classList.remove('hidden');
+        setTimeout(function() {
+            content.classList.remove('scale-95', 'opacity-0');
+            content.classList.add('scale-100', 'opacity-100');
+        }, 10);
+    }
+
+    function closeBillNotification() {
+        const modal = document.getElementById('bill-notification');
+        const content = document.getElementById('bill-notification-content');
+
+        content.classList.remove('scale-100', 'opacity-100');
+        content.classList.add('scale-95', 'opacity-0');
+        setTimeout(function() {
+            modal.classList.add('hidden');
+        }, 300);
+    }
+
+    // Voice notification queue - prevents multiple voices at once
+    const speechQueue = [];
+    let isSpeaking = false;
+    let speechInitialized = false;
+
+    // Initialize speech synthesis (must be done after user interaction)
+    function initSpeechSynthesis() {
+        if ('speechSynthesis' in window && !speechInitialized) {
+            // Try to load voices
+            speechSynthesis.getVoices();
+            speechInitialized = true;
+            console.log('Speech synthesis initialized');
+        }
+    }
+
+    // Process speech queue
+    function processSpeechQueue() {
+        if (!('speechSynthesis' in window)) {
+            console.log('Speech synthesis not supported');
+            return;
+        }
+
+        if (isSpeaking || speechQueue.length === 0) return;
+
+        isSpeaking = true;
+        const utterance = speechQueue.shift();
+
+        utterance.onend = function() {
+            console.log('Speech ended');
+            isSpeaking = false;
+            // Process next in queue
+            setTimeout(processSpeechQueue, 500);
+        };
+
+        utterance.onerror = function(event) {
+            console.error('Speech error:', event);
+            isSpeaking = false;
+            // Process next in queue even on error
+            setTimeout(processSpeechQueue, 500);
+        };
+
+        console.log('Speaking:', utterance.text.substring(0, 50) + '...');
+        speechSynthesis.speak(utterance);
+    }
+
+    // Add speech to queue
+    function queueSpeech(utterance) {
+        if (!('speechSynthesis' in window)) {
+            console.log('Speech synthesis not supported - showing alert instead');
+            alert('NOTIFICATION VOCALE: ' + utterance.text);
+            return;
+        }
+
+        speechQueue.push(utterance);
+        console.log('Speech queued, length:', speechQueue.length);
+        processSpeechQueue();
+    }
+
+    // Voice message for customer
+    function playCustomerMessage() {
+        if ('speechSynthesis' in window) {
+            const message = 'Un de nos employés arrive pour vous apporter la facture. ' +
+                           'Vous pouvez désormais payer avec Momo Pay chez nous ou déduire du resto. ' +
+                           'Temps d\'attente estimé : 1 à 2 minutes. Merci de patienter.';
+
+            const utterance = new SpeechSynthesisUtterance(message);
+            utterance.lang = 'fr-FR';
+            utterance.rate = 0.85;
+            utterance.pitch = 1.0;
+            utterance.volume = 1.0;
+
+            // Add to queue instead of speaking immediately
+            queueSpeech(utterance);
+            console.log('Customer message queued');
+        } else {
+            console.log('Speech synthesis not supported');
+        }
+    }
+
+    // Initiate MomPay Payment via USSD
+    function initiateMomPay() {
+        const merchantCode = '{{ restaurant.mompay_merchant_code }}';
+        const amount = {{ order.total_price|floatformat:0 }};
+
+        if (!merchantCode) {
+            alert('Le code marchand Momo Pay n\'est pas configuré.');
+            return;
+        }
+
+        // Code USSD: *106*merchant_code*amount#
+        const ussdCode = '*106*' + merchantCode + '*' + amount + '#';
+
+        // Afficher le code USSD à l'utilisateur
+        if (confirm('Pour payer avec MomPay, composez le code suivant :\n\n' + ussdCode + '\n\nVoulez-vous copier ce code ?')) {
+            // Copier le code dans le presse-papier
+            navigator.clipboard.writeText(ussdCode).then(function() {
+                alert('Code USSD copié ! Composez-le maintenant pour payer.');
+                // start call ussd
+                window.location.href = 'tel:' + ussdCode;
+            }, function() {
+                // Fallback pour les anciens navigateurs
+                const textArea = document.createElement('textarea');
+                textArea.value = ussdCode;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                alert('Code USSD copié ! Composez-le maintenant pour payer.');
+            });
+        }
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+        updateLanguageChecks();
+        updateCurrencyChecks();
+
+        // Initialize speech synthesis
+        initSpeechSynthesis();
+
+        // Also initialize on first user interaction (browser requirement)
+        document.addEventListener('click', initSpeechSynthesis, { once: true });
+        document.addEventListener('touchstart', initSpeechSynthesis, { once: true });
+
+        // Charger la langue sauvegardée
+        const savedLang = localStorage.getItem('selected_language') || 'fr';
+        currentLanguage = savedLang;
+
+        // Attendre que Google Translate soit prêt (max 5 secondes)
+        let waitCount = 0;
+        const checkGoogleReady = setInterval(function() {
+            waitCount++;
+            if (typeof googleTranslateReady !== 'undefined' && googleTranslateReady) {
+                clearInterval(checkGoogleReady);
+                console.log('Google Translate prêt, langue:', savedLang);
+                if (savedLang !== 'fr') {
+                    if (typeof translateWithGoogle === 'function') {
+                        translateWithGoogle(savedLang);
+                    }
+                }
+            } else if (waitCount > 50) {
+                // Timeout après 5 secondes
+                clearInterval(checkGoogleReady);
+                console.log('Google Translate pas prêt');
+            }
+        }, 100);
+    });
+
+    // Test voice function
+    function testVoice() {
+        const testMessage = 'Test de la synthèse vocale. Un, deux, trois. La table {{ table.name }} teste sa voix.';
+        const utterance = new SpeechSynthesisUtterance(testMessage);
+        utterance.lang = 'fr-FR';
+        utterance.rate = 0.9;
+        queueSpeech(utterance);
+        console.log('Voice test initiated');
+    }
+
+    // CSRF Token helper
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+</script>
+
+<style>
+    .fab-item {
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+    }
+</style>
+{% endblock %}

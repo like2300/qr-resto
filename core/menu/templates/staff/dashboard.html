@@ -1,0 +1,994 @@
+{% extends 'staff/base.html' %}
+
+{% block title %}Tableau de bord - {{ restaurant.name }}{% endblock %}
+
+{% block extra_js %}
+<script>
+// Show announcement popup on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const announcementModal = document.getElementById('announcement-modal');
+    if (announcementModal) {
+        setTimeout(function() {
+            announcementModal.classList.remove('hidden');
+            setTimeout(function() {
+                const content = document.getElementById('announcement-modal-content');
+                content.classList.remove('scale-95', 'opacity-0');
+                content.classList.add('scale-100', 'opacity-100');
+            }, 10);
+        }, 500);
+    }
+});
+
+function closeAnnouncementModal() {
+    const modal = document.getElementById('announcement-modal');
+    const content = document.getElementById('announcement-modal-content');
+
+    content.classList.remove('scale-100', 'opacity-100');
+    content.classList.add('scale-95', 'opacity-0');
+    setTimeout(function() {
+        modal.classList.add('hidden');
+    }, 300);
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="mb-10 flex items-center justify-between">
+    <div>
+        <h1 class="text-4xl font-serif uppercase tracking-widest">Tableau de bord</h1>
+        <p class="text-xs uppercase tracking-widest text-gray-500 mt-3">Vue d'ensemble de l'activité</p>
+    </div>
+    <div class="flex gap-3">
+        <!-- Voice Control Button -->
+        <button type="button" id="voice-toggle-btn" onclick="toggleVoice()" 
+                class="px-4 py-2 rounded-lg border-2 border-gray-300 text-xs uppercase tracking-widest hover:bg-gray-50 transition-all"
+                title="Activer/Couper les annonces vocales">
+            <i class="ri-volume-up-line mr-2" id="voice-icon"></i>
+            <span id="voice-text">Voix ON</span>
+        </button>
+        <!-- Test Sound Button -->
+        <button type="button" onclick="testSound()" 
+                class="px-4 py-2 rounded-lg border-2 border-blue-300 text-xs uppercase tracking-widest hover:bg-blue-50 transition-all text-blue-600"
+                title="Tester le son et la voix">
+            <i class="ri-test-tube-line mr-2"></i>
+            <span>Tester</span>
+        </button>
+        <!-- Notification Permission Button -->
+        <button type="button" id="notif-perm-btn" onclick="requestNotificationPermission()" 
+                class="px-4 py-2 rounded-lg border-2 border-yellow-300 text-xs uppercase tracking-widest hover:bg-yellow-50 transition-all text-yellow-600 hidden"
+                title="Activer les notifications">
+            <i class="ri-notification-badge-line mr-2"></i>
+            <span>Notifications</span>
+        </button>
+    </div>
+</div>
+
+<!-- Stats cards -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+    <div class="card p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-xs uppercase tracking-widest text-gray-500">Total Tables</p>
+                <p class="text-4xl font-serif mt-2">{{ stats.total_tables }}</p>
+            </div>
+            <div class="w-14 h-14 flex items-center justify-center bg-gray-100">
+                <i class="ri-restaurant-2-line text-3xl"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="card p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-xs uppercase tracking-widest text-gray-500">Tables Occupées</p>
+                <p class="text-4xl font-serif mt-2">{{ stats.occupied_tables }}</p>
+            </div>
+            <div class="w-14 h-14 flex items-center justify-center bg-orange-100">
+                <i class="ri-armchair-line text-3xl text-orange-600"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="card p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-xs uppercase tracking-widest text-gray-500">Commandes en cours</p>
+                <p class="text-4xl font-serif mt-2">{{ stats.active_orders }}</p>
+            </div>
+            <div class="w-14 h-14 flex items-center justify-center bg-purple-100">
+                <i class="ri-receipt-line text-3xl text-purple-600"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="card p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-xs uppercase tracking-widest text-gray-500">En attente</p>
+                <p class="text-4xl font-serif mt-2">{{ stats.pending_orders }}</p>
+            </div>
+            <div class="w-14 h-14 flex items-center justify-center bg-yellow-100">
+                <i class="ri-time-line text-3xl text-yellow-600"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Revenue Stats -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+    <div class="card p-6 bg-gradient-to-br from-green-50 to-green-100 border-green-200">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-xs uppercase tracking-widest text-green-600">Revenu du jour</p>
+                <p class="text-3xl font-serif mt-2 text-green-900">{{ stats.daily_revenue|floatformat:0 }} FCFA</p>
+            </div>
+            <div class="w-14 h-14 flex items-center justify-center bg-green-200">
+                <i class="ri-coins-line text-3xl text-green-700"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="card p-6 bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 relative overflow-hidden">
+        <div class="absolute inset-0 bg-gray-900/50 backdrop-blur-sm z-10 flex items-center justify-center">
+            <div class="text-center text-white px-6">
+                <i class="ri-lock-line text-4xl text-yellow-400 mb-2"></i>
+                <p class="text-sm font-bold uppercase tracking-widest">Bientôt disponible</p>
+            </div>
+        </div>
+        <div class="flex items-center justify-between opacity-30">
+            <div>
+                <p class="text-xs uppercase tracking-widest text-blue-600">Revenu de la semaine</p>
+                <p class="text-3xl font-serif mt-2 text-blue-900">{{ stats.weekly_revenue|floatformat:0 }} FCFA</p>
+            </div>
+            <div class="w-14 h-14 flex items-center justify-center bg-blue-200">
+                <i class="ri-calendar-line text-3xl text-blue-700"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="card p-6 bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200 relative overflow-hidden">
+        <div class="absolute inset-0 bg-gray-900/50 backdrop-blur-sm z-10 flex items-center justify-center">
+            <div class="text-center text-white px-6">
+                <i class="ri-lock-line text-4xl text-yellow-400 mb-2"></i>
+                <p class="text-sm font-bold uppercase tracking-widest">Bientôt disponible</p>
+            </div>
+        </div>
+        <div class="flex items-center justify-between opacity-30">
+            <div>
+                <p class="text-xs uppercase tracking-widest text-purple-600">Revenu du mois</p>
+                <p class="text-3xl font-serif mt-2 text-purple-900">{{ stats.monthly_revenue|floatformat:0 }} FCFA</p>
+            </div>
+            <div class="w-14 h-14 flex items-center justify-center bg-purple-200">
+                <i class="ri-calendar-event-line text-3xl text-purple-700"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tables et Commandes -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
+    <!-- État des tables -->
+    <div class="card">
+        <div class="p-6 border-b border-gray-100">
+            <div class="flex items-center justify-between">
+                <h2 class="text-lg font-serif uppercase tracking-widest">État des tables</h2>
+                <a href="{% url 'staff:tables_list' %}" class="text-xs uppercase tracking-widest hover:underline">
+                    Voir tout <i class="ri-arrow-right-line"></i>
+                </a>
+            </div>
+        </div>
+        <div class="p-6">
+            <div class="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                {% for table in tables %}
+                <a href="{% url 'staff:tables_list' %}"
+                   class="p-4 text-center transition-all border {% if table.is_occupied %}bg-orange-50 border-orange-200 hover:bg-orange-100{% else %}bg-green-50 border-green-200 hover:bg-green-100{% endif %}">
+                    <p class="font-serif uppercase tracking-widest text-sm {% if table.is_occupied %}text-orange-700{% else %}text-green-700{% endif %}">
+                        {{ table.name }}
+                    </p>
+                    <p class="text-xs uppercase tracking-widest mt-2 {% if table.is_occupied %}text-orange-600{% else %}text-green-600{% endif %}">
+                        {% if table.is_occupied %}Occupée{% else %}Libre{% endif %}
+                    </p>
+                </a>
+                {% empty %}
+                <p class="text-gray-500 col-span-full text-center py-8 text-xs uppercase tracking-widest">Aucune table</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Commandes récentes -->
+    <div class="card">
+        <div class="p-6 border-b border-gray-100">
+            <div class="flex items-center justify-between">
+                <h2 class="text-lg font-serif uppercase tracking-widest">Commandes récentes</h2>
+                <a href="{% url 'staff:orders_list' %}" class="text-xs uppercase tracking-widest hover:underline">
+                    Voir tout <i class="ri-arrow-right-line"></i>
+                </a>
+            </div>
+        </div>
+        <div class="p-6">
+            <div class="space-y-3">
+                {% for order in active_orders|slice:":5" %}
+                <a href="{% url 'staff:order_detail' order.uuid %}"
+                   class="flex items-center justify-between p-4 transition-all border border-gray-100 hover:bg-gray-50">
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 flex items-center justify-center bg-gray-100">
+                            <i class="ri-receipt-line text-xl"></i>
+                        </div>
+                        <div>
+                            <p class="font-serif uppercase tracking-widest text-sm">Table {{ order.table.name }}</p>
+                            <p class="text-xs text-gray-500 mt-1">{{ order.created_at|date:"H:i" }} • {{ order.items.count }} articles</p>
+                        </div>
+                    </div>
+                    <span class="status-badge {% if order.status == 'pending' %}status-pending{% elif order.status == 'confirmed' %}status-confirmed{% elif order.status == 'preparing' %}status-preparing{% elif order.status == 'ready' %}status-ready{% else %}status-served{% endif %}">
+                        {{ order.get_status_display }}
+                    </span>
+                </a>
+                {% empty %}
+                <p class="text-gray-500 text-center py-8 text-xs uppercase tracking-widest">Aucune commande en cours</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick actions -->
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+    <a href="{% url 'staff:orders_list' %}?status=pending"
+       class="card p-6 hover:bg-yellow-50 transition-colors">
+        <div class="flex items-center gap-4">
+            <div class="w-12 h-12 flex items-center justify-center bg-yellow-100">
+                <i class="ri-time-line text-2xl text-yellow-600"></i>
+            </div>
+            <div>
+                <p class="font-serif text-2xl">{{ stats.pending_orders }} commandes</p>
+                <p class="text-xs uppercase tracking-widest text-gray-500 mt-1">En attente</p>
+            </div>
+        </div>
+    </a>
+
+    <a href="{% url 'staff:orders_list' %}?status=ready"
+       class="card p-6 hover:bg-green-50 transition-colors">
+        <div class="flex items-center gap-4">
+            <div class="w-12 h-12 flex items-center justify-center bg-green-100">
+                <i class="ri-check-line text-2xl text-green-600"></i>
+            </div>
+            <div>
+                <p class="font-serif text-2xl">Prêtes</p>
+                <p class="text-xs uppercase tracking-widest text-gray-500 mt-1">À servir</p>
+            </div>
+        </div>
+    </a>
+
+    <a href="{% url 'staff:tables_list' %}"
+       class="card p-6 hover:bg-orange-50 transition-colors">
+        <div class="flex items-center gap-4">
+            <div class="w-12 h-12 flex items-center justify-center bg-orange-100">
+                <i class="ri-armchair-line text-2xl text-orange-600"></i>
+            </div>
+            <div>
+                <p class="font-serif text-2xl">{{ stats.occupied_tables }} tables</p>
+                <p class="text-xs uppercase tracking-widest text-gray-500 mt-1">Occupées</p>
+            </div>
+        </div>
+    </a>
+</div>
+
+<!-- Toast Notification for New Orders -->
+<div id="order-toast" class="fixed top-24 right-4 w-96 bg-white rounded-xl shadow-2xl border-l-4 border-green-500 z-[100] hidden transform translate-x-full transition-transform duration-300">
+    <div class="p-4">
+        <div class="flex items-start gap-3">
+            <div class="w-10 h-10 flex items-center justify-center bg-green-100 rounded-full flex-shrink-0">
+                <i class="ri-notification-3-line text-xl text-green-600"></i>
+            </div>
+            <div class="flex-1">
+                <h4 class="font-semibold text-gray-900 mb-1">🔔 Nouvelle commande !</h4>
+                <p id="order-toast-message" class="text-sm text-gray-600 mb-2"></p>
+                <div class="flex gap-2">
+                    <a href="{% url 'staff:orders_list' %}" class="text-xs uppercase tracking-widest text-green-600 hover:text-green-700 font-semibold">Voir</a>
+                    <button type="button" onclick="hideOrderToast()" class="text-xs uppercase tracking-widest text-gray-400 hover:text-gray-600">Fermer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Notification for Bill Requests -->
+<div id="bill-toast" class="fixed top-24 right-4 w-96 bg-white rounded-xl shadow-2xl border-l-4 border-yellow-500 z-[100] hidden transform translate-x-full transition-transform duration-300">
+    <div class="p-4">
+        <div class="flex items-start gap-3">
+            <div class="w-10 h-10 flex items-center justify-center bg-yellow-100 rounded-full flex-shrink-0">
+                <i class="ri-receipt-line text-xl text-yellow-600"></i>
+            </div>
+            <div class="flex-1">
+                <h4 class="font-semibold text-gray-900 mb-1">📋 Demande d'addition</h4>
+                <p id="bill-toast-message" class="text-sm text-gray-600 mb-2"></p>
+                <div class="flex gap-2">
+                    <a href="{% url 'staff:bills_list' %}" class="text-xs uppercase tracking-widest text-yellow-600 hover:text-yellow-700 font-semibold">Voir</a>
+                    <button type="button" onclick="markBillAsHandled()" class="text-xs uppercase tracking-widest text-green-600 hover:text-green-700 font-semibold">✅ Traiter</button>
+                    <button type="button" onclick="hideBillToast()" class="text-xs uppercase tracking-widest text-gray-400 hover:text-gray-600">Fermer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Audio for notification -->
+<audio id="order-notification-sound" preload="auto"></audio>
+
+<script>
+// Real-time order notifications
+let lastOrderId = {{ active_orders.0.id|default:0 }};
+let lastOrderCheck = Date.now();
+const CHECK_INTERVAL = 2000; // Check every 2 seconds for near real-time
+let isSpeaking = false;
+let speechQueue = [];
+let pollCount = 0;
+let audioContextInitialized = false;
+let notificationPermissionGranted = false;
+let announcedBillIds = []; // Track which bill requests have been announced
+let currentBillOrderId = null; // Track current bill order for handling
+let pageLoaded = false; // Track if page has finished loading
+let voiceEnabled = {{ restaurant.voice_notifications_enabled|lower }}; // Voice announcements enabled by default
+
+// Initialize voice toggle button state on load
+document.addEventListener('DOMContentLoaded', function() {
+    updateVoiceButtonUI();
+});
+
+// Toggle voice announcements
+function toggleVoice() {
+    voiceEnabled = !voiceEnabled;
+    updateVoiceButtonUI();
+    console.log('🔊 Voice', voiceEnabled ? 'enabled' : 'disabled');
+}
+
+// Test sound and voice
+function testSound() {
+    console.log('🔊 Testing sound and voice...');
+    
+    // Initialize audio context
+    initAudioContext();
+    
+    // Play notification sound
+    playNotificationSound();
+    
+    // Test voice announcement after a delay
+    setTimeout(() => {
+        const testMessage = 'Test des notifications vocales. Le système fonctionne correctement.';
+        const utterance = new SpeechSynthesisUtterance(testMessage);
+        utterance.lang = 'fr-FR';
+        utterance.rate = 0.9;
+        utterance.volume = 1;
+        
+        const voices = speechSynthesis.getVoices();
+        const frenchVoice = voices.find(voice => voice.lang.includes('fr'));
+        if (frenchVoice) {
+            utterance.voice = frenchVoice;
+        }
+        
+        speechSynthesis.speak(utterance);
+        console.log('🔊 Voice test:', testMessage);
+    }, 500);
+}
+
+// Update voice button UI
+function updateVoiceButtonUI() {
+    const voiceIcon = document.getElementById('voice-icon');
+    const voiceText = document.getElementById('voice-text');
+    const voiceBtn = document.getElementById('voice-toggle-btn');
+    
+    if (voiceEnabled) {
+        voiceIcon.classList.remove('ri-volume-mute-line');
+        voiceIcon.classList.add('ri-volume-up-line');
+        voiceText.textContent = 'Voix ON';
+        voiceBtn.classList.remove('border-red-500', 'text-red-600');
+        voiceBtn.classList.add('border-gray-300');
+    } else {
+        voiceIcon.classList.remove('ri-volume-up-line');
+        voiceIcon.classList.add('ri-volume-mute-line');
+        voiceText.textContent = 'Voix OFF';
+        voiceBtn.classList.add('border-red-500', 'text-red-600');
+        voiceBtn.classList.remove('border-gray-300');
+    }
+}
+
+// Initialize audio context on first user interaction
+function initAudioContext() {
+    if (audioContextInitialized) return;
+    try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (AudioContext) {
+            const audioContext = new AudioContext();
+            
+            // Resume audio context if suspended (required for some browsers)
+            if (audioContext.state === 'suspended') {
+                audioContext.resume().then(() => {
+                    console.log('✅ Audio context resumed');
+                });
+            }
+            
+            audioContextInitialized = true;
+            console.log('✅ Audio context initialized');
+        }
+    } catch (e) {
+        console.error('❌ Failed to initialize audio context:', e);
+    }
+}
+
+// Request notification permission on load
+if ('Notification' in window) {
+    if (Notification.permission === 'default') {
+        // Show notification permission button
+        const notifBtn = document.getElementById('notif-perm-btn');
+        if (notifBtn) {
+            notifBtn.classList.remove('hidden');
+        }
+    } else if (Notification.permission === 'granted') {
+        notificationPermissionGranted = true;
+        console.log('📬 Notification permission already granted');
+    }
+}
+
+function requestNotificationPermission() {
+    if ('Notification' in window) {
+        Notification.requestPermission().then(permission => {
+            notificationPermissionGranted = (permission === 'granted');
+            console.log('📬 Notification permission:', permission);
+            
+            // Hide the button if granted
+            if (permission === 'granted') {
+                const notifBtn = document.getElementById('notif-perm-btn');
+                if (notifBtn) {
+                    notifBtn.classList.add('hidden');
+                }
+                
+                // Show success message
+                alert('✅ Notifications activées ! Vous recevrez des alertes pour les nouvelles commandes et demandes d\'addition.');
+            } else if (permission === 'denied') {
+                alert('❌ Notifications refusées. Vous ne recevrez pas d\'alertes sur votre mobile.');
+            }
+        });
+    }
+}
+
+// Click anywhere to enable audio
+document.addEventListener('click', initAudioContext, { once: true });
+document.addEventListener('keydown', initAudioContext, { once: true });
+
+console.log('🚀 Dashboard loaded - Starting notifications...');
+console.log('📊 Last order ID:', lastOrderId);
+console.log('⏱️ Check interval:', CHECK_INTERVAL + 'ms');
+
+// Text-to-Speech announcement with queue system
+function announceOrder(order) {
+    console.log('Adding order to speech queue:', order);
+
+    // Add to queue
+    speechQueue.push({
+        type: 'order',
+        order: order
+    });
+
+    // Process queue if not already speaking
+    if (!isSpeaking) {
+        processSpeechQueue();
+    }
+}
+
+// Announce bill request
+function announceBillRequest(tableNumber) {
+    console.log('Adding bill request to speech queue:', tableNumber);
+
+    // Add to queue
+    speechQueue.push({
+        type: 'bill',
+        tableNumber: tableNumber
+    });
+
+    // Process queue if not already speaking
+    if (!isSpeaking) {
+        processSpeechQueue();
+    }
+}
+
+// Process speech queue sequentially
+function processSpeechQueue() {
+    if (speechQueue.length === 0) {
+        isSpeaking = false;
+        return;
+    }
+
+    isSpeaking = true;
+    const item = speechQueue.shift(); // Get first item
+
+    if (item.type === 'order') {
+        speakOrderAnnouncement(item.order);
+    } else if (item.type === 'bill') {
+        speakBillAnnouncement(item.tableNumber);
+    }
+}
+
+// Speak order announcement
+function speakOrderAnnouncement(order) {
+    console.log('Speaking order:', order);
+
+    // Play a notification sound ALWAYS
+    playNotificationSound();
+
+    // Check if voice is enabled for the synthetic voice
+    if (!voiceEnabled) {
+        console.log('🔇 Voice disabled - skipping order announcement');
+        isSpeaking = false;
+        processSpeechQueue();
+        return;
+    }
+
+    // Then announce the order details with items
+    setTimeout(() => {
+        // Build the items list string
+        let itemsText = '';
+        if (order.items_list && order.items_list.length > 0) {
+            const items = order.items_list.map(item => {
+                return `${item.quantity} ${item.name}`;
+            });
+            itemsText = '. ' + items.join(', ');
+        }
+
+        const message = `Nouvelle commande ! Table ${order.table_name}, ${order.items_count} articles, ${order.total} francs CFA${itemsText}`;
+        console.log('Speaking:', message);
+
+        const utterance = new SpeechSynthesisUtterance(message);
+        utterance.lang = 'fr-FR';
+        utterance.rate = 0.85;
+        utterance.pitch = 1;
+        utterance.volume = 1;
+
+        const voices = speechSynthesis.getVoices();
+        const frenchVoice = voices.find(voice => voice.lang.includes('fr'));
+        if (frenchVoice) {
+            utterance.voice = frenchVoice;
+            console.log('Using French voice:', frenchVoice.name);
+        }
+
+        utterance.onend = () => {
+            console.log('Speech ended, processing next in queue');
+            isSpeaking = false;
+            processSpeechQueue(); // Process next item
+        };
+
+        utterance.onerror = (event) => {
+            console.error('Speech error:', event);
+            isSpeaking = false;
+            processSpeechQueue();
+        };
+
+        speechSynthesis.speak(utterance);
+    }, 500);
+}
+// Speak bill request announcement
+function speakBillAnnouncement(tableNumber) {
+    console.log('Speaking bill request:', tableNumber);
+    
+    // Check if voice is enabled
+    if (!voiceEnabled) {
+        console.log('🔇 Voice disabled - skipping bill announcement');
+        isSpeaking = false;
+        processSpeechQueue();
+        return;
+    }
+
+    // Play notification sound
+    playNotificationSound();
+
+    setTimeout(() => {
+        const message = `Demande d'addition ! Table ${tableNumber} a besoin de l'addition`;
+        console.log('Speaking:', message);
+
+        const utterance = new SpeechSynthesisUtterance(message);
+        utterance.lang = 'fr-FR';
+        utterance.rate = 0.85;
+        utterance.pitch = 1;
+        utterance.volume = 1;
+
+        const voices = speechSynthesis.getVoices();
+        const frenchVoice = voices.find(voice => voice.lang.includes('fr'));
+        if (frenchVoice) {
+            utterance.voice = frenchVoice;
+        }
+
+        utterance.onend = () => {
+            isSpeaking = false;
+            processSpeechQueue();
+        };
+
+        utterance.onerror = () => {
+            isSpeaking = false;
+            processSpeechQueue();
+        };
+
+        speechSynthesis.speak(utterance);
+    }, 500);
+}
+
+// Play notification sound (short chime) - Mobile optimized
+function playNotificationSound() {
+    // Check if voice is enabled
+    if (!voiceEnabled) {
+        console.log('🔇 Sound disabled - skipping notification sound');
+        return;
+    }
+    
+    try {
+        // Initialize audio context on user interaction (required for mobile)
+        if (!audioContextInitialized) {
+            initAudioContext();
+        }
+        
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        // Play a pleasant two-tone chime
+        oscillator.frequency.value = 880; // A5
+        oscillator.type = 'sine';
+
+        // First tone
+        gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
+
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.15);
+
+        // Second tone (higher pitch) after a short delay
+        setTimeout(() => {
+            const oscillator2 = audioContext.createOscillator();
+            const gainNode2 = audioContext.createGain();
+            
+            oscillator2.connect(gainNode2);
+            gainNode2.connect(audioContext.destination);
+            
+            oscillator2.frequency.value = 1100; // C#6
+            oscillator2.type = 'sine';
+            
+            gainNode2.gain.setValueAtTime(0.5, audioContext.currentTime);
+            gainNode2.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+            
+            oscillator2.start(audioContext.currentTime);
+            oscillator2.stop(audioContext.currentTime + 0.2);
+        }, 100);
+
+        console.log('🔔 Notification sound played');
+    } catch (e) {
+        console.error('❌ Failed to play notification sound:', e);
+    }
+}
+
+// Show toast notification
+function showOrderToast(order) {
+    const toast = document.getElementById('order-toast');
+    const message = document.getElementById('order-toast-message');
+    
+    // Build items display
+    let itemsDisplay = '';
+    if (order.items_list && order.items_list.length > 0) {
+        itemsDisplay = order.items_list.map(item => {
+            return `${item.quantity}x ${item.name}`;
+        }).join(' • ');
+    }
+    
+    message.innerHTML = `<strong>Table ${order.table_name}</strong><br>${itemsDisplay}<br class="mt-1"><span class="text-green-600 font-semibold">${order.total} FCFA</span>`;
+    
+    toast.classList.remove('hidden');
+    setTimeout(() => {
+        toast.classList.remove('translate-x-full');
+    }, 100);
+    
+    // Auto-hide after 15 seconds (longer for reading items)
+    setTimeout(() => {
+        hideOrderToast();
+    }, 15000);
+}
+
+function hideOrderToast() {
+    const toast = document.getElementById('order-toast');
+    toast.classList.add('translate-x-full');
+    setTimeout(() => {
+        toast.classList.add('hidden');
+    }, 300);
+}
+
+function showBillToast(tableNumber) {
+    const toast = document.getElementById('bill-toast');
+    const message = document.getElementById('bill-toast-message');
+
+    message.innerHTML = `<strong>Table ${tableNumber}</strong><br><span class="text-yellow-600 font-semibold">Demande l'addition</span>`;
+
+    toast.classList.remove('hidden');
+    setTimeout(() => {
+        toast.classList.remove('translate-x-full');
+    }, 100);
+
+    // Auto-hide after 15 seconds
+    setTimeout(() => {
+        hideBillToast();
+    }, 15000);
+}
+
+function markBillAsHandled() {
+    if (currentBillOrderId) {
+        console.log('✅ Marking bill as handled for order:', currentBillOrderId);
+        fetch('/staff/api/bill/' + currentBillOrderId + '/handled/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                console.log('✅ Bill marked as handled');
+                hideBillToast();
+                // Remove from announced list so it can be announced again if requested
+                announcedBillIds = announcedBillIds.filter(id => id !== currentBillOrderId);
+            }
+        })
+        .catch(error => {
+            console.error('❌ Error marking bill as handled:', error);
+        });
+    } else {
+        console.warn('⚠️ No bill order ID to mark as handled');
+    }
+}
+
+function hideBillToast() {
+    const toast = document.getElementById('bill-toast');
+    toast.classList.add('translate-x-full');
+    setTimeout(() => {
+        toast.classList.add('hidden');
+    }, 300);
+}
+
+// Check for new orders and bill requests
+function checkNewOrders() {
+    pollCount++;
+    const url = '{% url "staff:check_new_orders" %}?last_order_id=' + lastOrderId;
+    console.log('🔄 Polling... (count: ' + pollCount + ', lastOrderId: ' + lastOrderId + ')');
+    
+    fetch(url)
+        .then(response => {
+            console.log('📡 Response status:', response.status);
+            return response.json();
+        })
+        .then(data => {
+            console.log('📦 Response data:', data);
+            
+            if (data.success) {
+                // Only announce if page has finished loading (prevents announcing existing orders)
+                if (pageLoaded) {
+                    // Handle new orders
+                    if (data.has_new_orders && data.orders && data.orders.length > 0) {
+                        console.log('✅ NEW ORDERS DETECTED:', data.orders.length);
+                        data.orders.forEach(order => {
+                            console.log('📢 Announcing order for table', order.table_name);
+                            
+                            // Show toast notification (always works)
+                            showOrderToast(order);
+                            
+                            // Try voice announcement (may not work on mobile)
+                            if (voiceEnabled) {
+                                announceOrder(order);
+                            }
+                            
+                            lastOrderId = Math.max(lastOrderId, order.id);
+                            console.log('📊 Updated lastOrderId to:', lastOrderId);
+                        });
+
+                        // Send browser notification (works on mobile!)
+                        if ('Notification' in window && notificationPermissionGranted) {
+                            new Notification('🔔 Nouvelle commande !', {
+                                body: `${data.orders.length} nouvelle(s) commande(s)`,
+                                icon: '/static/icons/notification.png',
+                                tag: 'new-order',
+                                requireInteraction: true
+                            });
+                            console.log('🔔 Browser notification sent');
+                        }
+                        
+                        // Vibration API for mobile (works on Android)
+                        if ('vibrate' in navigator) {
+                            navigator.vibrate([300, 100, 300, 100, 300]);
+                        }
+                    } else {
+                        console.log('ℹ️ No new orders');
+                    }
+                    
+                    // Handle bill requests - only announce NEW ones
+                    if (data.has_bill_requests && data.bill_requests && data.bill_requests.length > 0) {
+                        const newBills = data.bill_requests.filter(bill => !announcedBillIds.includes(bill.id));
+
+                        if (newBills.length > 0) {
+                            console.log('✅ NEW BILL REQUESTS DETECTED:', newBills.length);
+                            newBills.forEach(bill => {
+                                console.log('📢 Announcing bill request for table', bill.table_name);
+                                currentBillOrderId = bill.id;
+                                
+                                // Show toast notification (always works)
+                                showBillToast(bill.table_name);
+                                
+                                // Try voice announcement (may not work on mobile)
+                                if (voiceEnabled) {
+                                    announceBillRequest(bill.table_name);
+                                }
+                                
+                                announcedBillIds.push(bill.id);
+                            });
+
+                            // Send browser notification (works on mobile!)
+                            if ('Notification' in window && notificationPermissionGranted) {
+                                const billTables = newBills.map(b => b.table_name).join(', ');
+                                
+                                // Create a visible notification
+                                new Notification('📋 Demande d\'addition', {
+                                    body: `Table(s) ${billTables} demande(nt) l'addition`,
+                                    icon: '/static/icons/notification.png',
+                                    tag: 'bill-request',
+                                    requireInteraction: true,
+                                    silent: false
+                                });
+                                console.log('🔔 Browser notification sent for bill');
+                            }
+                            
+                            // Vibration API for mobile (works on Android)
+                            if ('vibrate' in navigator) {
+                                navigator.vibrate([500, 200, 500, 200, 500]);
+                            }
+                        } else {
+                            console.log('ℹ️ Bill requests already announced');
+                        }
+                    }
+                } else {
+                    // Page still loading - initialize announcedBillIds with existing bills (don't announce them)
+                    console.log('ℹ️ Page still loading, initializing bill IDs without announcing');
+                    if (data.has_bill_requests && data.bill_requests && data.bill_requests.length > 0) {
+                        data.bill_requests.forEach(bill => {
+                            if (!announcedBillIds.includes(bill.id)) {
+                                announcedBillIds.push(bill.id);
+                            }
+                        });
+                        console.log('📋 Initialized announcedBillIds with', announcedBillIds.length, 'existing bill requests');
+                    }
+                    // Also update lastOrderId for existing orders
+                    if (data.has_new_orders && data.orders && data.orders.length > 0) {
+                        data.orders.forEach(order => {
+                            lastOrderId = Math.max(lastOrderId, order.id);
+                        });
+                    }
+                }
+                
+                // Update badge count if exists
+                const badge = document.querySelector('.notification-badge');
+                if (badge) {
+                    const totalNew = (data.new_orders_count || 0) + (data.bill_requests ? data.bill_requests.length : 0);
+                    if (totalNew > 0) {
+                        const currentCount = parseInt(badge.textContent) || 0;
+                        badge.textContent = currentCount + totalNew;
+                        badge.classList.remove('hidden');
+                        console.log('🔴 Badge updated:', badge.textContent);
+                    }
+                }
+            } else {
+                console.log('❌ API returned success: false');
+            }
+        })
+        .catch(error => {
+            console.error('❌ Error checking orders:', error);
+        });
+}
+
+// Load voices when they're ready
+if ('speechSynthesis' in window) {
+    speechSynthesis.onvoiceschanged = () => {
+        // Voices are loaded
+    };
+}
+
+// Start polling when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('📖 DOM Content Loaded');
+    
+    // Initialize speech synthesis
+    if ('speechSynthesis' in window) {
+        speechSynthesis.getVoices();
+        console.log('🎤 Speech synthesis initialized');
+
+        // Load voices on change (Chrome requires this)
+        speechSynthesis.onvoiceschanged = function() {
+            const voices = speechSynthesis.getVoices();
+            console.log('🎤 Voices loaded:', voices.length, 'voices available');
+            voices.forEach((voice, i) => {
+                if (voice.lang.includes('fr')) {
+                    console.log('✅ French voice found:', voice.name);
+                }
+            });
+        };
+    } else {
+        console.error('❌ Speech synthesis NOT supported');
+    }
+
+    // Also initialize on first user interaction (browser requirement)
+    document.addEventListener('click', function() {
+        initAudioContext();
+    }, { once: true });
+    
+    document.addEventListener('keydown', function() {
+        initAudioContext();
+    }, { once: true });
+
+    // Request notification permission
+    if ('Notification' in window) {
+        Notification.requestPermission().then(permission => {
+            notificationPermissionGranted = (permission === 'granted');
+            console.log('📬 Notification permission:', permission);
+        });
+    }
+
+    // Start polling after a short delay (don't announce existing orders)
+    console.log('⏱️ Starting polling with interval:', CHECK_INTERVAL + 'ms');
+    setTimeout(function() {
+        pageLoaded = true; // Mark page as loaded
+        checkNewOrders(); // Initial check after delay
+        setInterval(checkNewOrders, CHECK_INTERVAL);
+        console.log('✅ Polling started - will only announce NEW orders');
+    }, 3000); // Wait 3 seconds before first check
+});
+</script>
+
+<!-- Announcement Modal -->
+{% if active_announcements %}
+<div id="announcement-modal" class="fixed inset-0 z-[100] hidden">
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closeAnnouncementModal()"></div>
+    <div class="absolute inset-0 flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-2xl rounded-xl shadow-2xl transform scale-95 opacity-0 transition-all duration-300" id="announcement-modal-content">
+            {% with announcement=active_announcements.first %}
+            <div class="p-6 border-b border-gray-100 flex justify-between items-center">
+                <div>
+                    <h3 class="text-xl font-serif uppercase tracking-widest">{{ announcement.title }}</h3>
+                    <p class="text-[9px] uppercase tracking-widest text-gray-400 mt-1">
+                        {% if announcement.priority > 5 %}
+                            <span class="text-red-500">🔴 Priorité élevée</span>
+                        {% else %}
+                            <span class="text-gray-500">Information</span>
+                        {% endif %}
+                    </p>
+                </div>
+                <button type="button" onclick="closeAnnouncementModal()" class="text-gray-400 hover:text-black">
+                    <i class="ri-close-line text-2xl"></i>
+                </button>
+            </div>
+
+            {% if announcement.image %}
+            <div class="p-6 pb-0">
+                <img src="{{ announcement.image.url }}" alt="{{ announcement.title }}" class="w-full h-48 object-cover rounded-lg">
+            </div>
+            {% endif %}
+
+            <div class="p-6">
+                <p class="text-base leading-relaxed text-gray-700">{{ announcement.message|linebreaks }}</p>
+            </div>
+
+            <div class="p-6 border-t border-gray-100 flex justify-end">
+                <button type="button" onclick="closeAnnouncementModal()" class="btn-primary">
+                    <i class="ri-check-line mr-2"></i>Compris
+                </button>
+            </div>
+            {% endwith %}
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

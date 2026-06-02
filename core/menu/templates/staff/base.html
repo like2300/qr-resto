@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Gestion Restaurant{% endblock %}</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+
+    <style>
+        /* Import d'une police Serif pour le côté Hôtel */
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;500;600;700&display=swap');
+
+        :root {
+            --font-serif: 'Playfair Display', serif;
+            --font-sans: 'Inter', sans-serif;
+        }
+
+        body {
+            font-family: var(--font-sans);
+        }
+
+        .font-serif { font-family: var(--font-serif); }
+
+        /* Suppression stricte des arrondis */
+        * { border-radius: 0 !important; }
+
+        /* Scroll fluide */
+        html { scroll-behavior: smooth; }
+
+        /* Sidebar styles */
+        .sidebar {
+            background: linear-gradient(180deg, #1a1a1a 0%, #0d0d0d 100%);
+        }
+
+        .sidebar-link {
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .sidebar-link:hover {
+            background: rgba(255,255,255,0.05);
+        }
+
+        .sidebar-link.active {
+            background: rgba(255,255,255,0.08);
+        }
+
+        .sidebar-link.active::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: #fff;
+        }
+
+        /* Card styles */
+        .card {
+            background: #fff;
+            border: 1px solid #e5e5e5;
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            border-color: #d4d4d4;
+        }
+
+        /* Button styles */
+        .btn-primary {
+            background: #1a1a1a;
+            color: #fff;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            font-size: 0.75rem;
+            padding: 0.75rem 1.5rem;
+            transition: all 0.3s;
+            border: 1px solid #1a1a1a;
+        }
+
+        .btn-primary:hover {
+            background: #333;
+            border-color: #333;
+        }
+
+        .btn-secondary {
+            background: #fff;
+            color: #1a1a1a;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            font-size: 0.75rem;
+            padding: 0.75rem 1.5rem;
+            transition: all 0.3s;
+            border: 1px solid #1a1a1a;
+        }
+
+        .btn-secondary:hover {
+            background: #f5f5f5;
+        }
+
+        /* Input styles */
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            box-shadow: none;
+            border-color: #1a1a1a;
+        }
+
+        /* Status badges */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 12px;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .status-pending { background-color: #FEF3C7; color: #92400E; }
+        .status-confirmed { background-color: #DBEAFE; color: #1E40AF; }
+        .status-preparing { background-color: #EDE9FE; color: #5B21B6; }
+        .status-ready { background-color: #D1FAE5; color: #065F46; }
+        .status-served { background-color: #F3F4F6; color: #374151; }
+        .status-cancelled { background-color: #FEE2E2; color: #991B1B; }
+    </style>
+
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="bg-gray-50">
+    {% if user.is_authenticated %}
+    <!-- Sidebar -->
+    <aside class="sidebar fixed inset-y-0 left-0 w-64 text-white z-50">
+        <div class="p-6 border-b border-white/10">
+            <h1 class="text-xl font-serif tracking-widest uppercase">{{ restaurant.name|default:"Restaurant" }}</h1>
+            <p class="text-xs uppercase tracking-widest text-gray-400 mt-2">Interface de gestion</p>
+        </div>
+
+        <nav class="mt-6">
+            <a href="{% url 'staff:dashboard' %}"
+               class="sidebar-link flex items-center gap-3 px-6 py-4 {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                <i class="ri-dashboard-line w-5"></i>
+                <span class="text-xs uppercase tracking-widest">Tableau de bord</span>
+            </a>
+            <a href="{% url 'staff:finance' %}"
+               class="sidebar-link flex items-center gap-3 px-6 py-4 {% if 'finance' in request.resolver_match.url_name %}active{% endif %} opacity-50 cursor-not-allowed"
+               onclick="event.preventDefault(); showComingSoon();">
+                <i class="ri-coins-line w-5"></i>
+                <span class="text-xs uppercase tracking-widest">Finance</span>
+                <i class="ri-lock-line ml-auto text-yellow-400"></i>
+            </a>
+            <a href="{% url 'staff:orders_list' %}"
+               class="sidebar-link flex items-center gap-3 px-6 py-4 {% if 'order' in request.resolver_match.url_name %}active{% endif %}">
+                <i class="ri-receipt-line w-5"></i>
+                <span class="text-xs uppercase tracking-widest">Commandes</span>
+                {% if pending_comments > 0 %}
+                <span class="ml-auto w-5 h-5 flex items-center justify-center bg-red-500 text-white text-[9px] font-bold rounded-full">{{ pending_comments }}</span>
+                {% endif %}
+            </a>
+            <a href="{% url 'staff:bills_list' %}"
+               class="sidebar-link flex items-center gap-3 px-6 py-4 {% if request.resolver_match.url_name == 'bills_list' %}active{% endif %}">
+                <i class="ri-file-text-line w-5"></i>
+                <span class="text-xs uppercase tracking-widest">Additions</span>
+                {% if pending_bills > 0 %}
+                <span class="ml-auto w-5 h-5 flex items-center justify-center bg-yellow-500 text-white text-[9px] font-bold rounded-full">{{ pending_bills }}</span>
+                {% endif %}
+            </a>
+            <a href="{% url 'staff:tables_list' %}"
+               class="sidebar-link flex items-center gap-3 px-6 py-4 {% if 'table' in request.resolver_match.url_name %}active{% endif %}">
+                <i class="ri-restaurant-2-line w-5"></i>
+                <span class="text-xs uppercase tracking-widest">Tables</span>
+            </a>
+            <a href="{% url 'staff:menu_items' %}"
+               class="sidebar-link flex items-center gap-3 px-6 py-4 {% if 'menu' in request.resolver_match.url_name %}active{% endif %}">
+                <i class="ri-menu-line w-5"></i>
+                <span class="text-xs uppercase tracking-widest">Menu</span>
+            </a>
+            <a href="{% url 'staff:profile' %}"
+               class="sidebar-link flex items-center gap-3 px-6 py-4 {% if request.resolver_match.url_name == 'profile' %}active{% endif %}">
+                <i class="ri-building-2-line w-5"></i>
+                <span class="text-xs uppercase tracking-widest">Profil</span>
+            </a>
+        </nav>
+
+        <div class="absolute bottom-0 left-0 right-0 p-6 border-t border-white/10">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-10 h-10 flex items-center justify-center bg-white/10">
+                    <i class="ri-user-line"></i>
+                </div>
+                <div>
+                    <p class="text-xs uppercase tracking-widest">{{ user.first_name|default:user.username }}</p>
+                    <p class="text-xs text-gray-400 mt-0.5">Staff</p>
+                </div>
+            </div>
+            <a href="{% url 'staff:logout' %}"
+               class="flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-xs uppercase tracking-widest">
+                <i class="ri-logout-box-line"></i>
+                Déconnexion
+            </a>
+        </div>
+    </aside>
+
+    <!-- Main content -->
+    <main class="ml-64 min-h-screen">
+        <!-- Top bar -->
+        <div class="bg-white border-b border-gray-200 px-8 py-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs uppercase tracking-widest text-gray-500">{{ restaurant.name|default:"Restaurant" }}</p>
+                </div>
+                <div class="flex items-center gap-4">
+                    <!-- Notification Bell -->
+                    {% if recent_announcements > 0 %}
+                    <button type="button" onclick="toggleAnnouncementPanel()" class="relative text-gray-400 hover:text-gray-600 transition-colors">
+                        <i class="ri-notification-3-line text-xl"></i>
+                        <span class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center animate-pulse">{{ recent_announcements }}</span>
+                    </button>
+                    {% endif %}
+                    
+                    <span class="text-xs uppercase tracking-widest text-gray-500">{{ now|date:"d/m/Y H:i" }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Content -->
+        <div class="p-8">
+            {% if messages %}
+            <div class="mb-6 space-y-2">
+                {% for message in messages %}
+                <div class="px-4 py-3 {% if message.tags == 'success' %}bg-green-50 border border-green-200 text-green-800{% elif message.tags == 'error' %}bg-red-50 border border-red-200 text-red-800{% else %}bg-blue-50 border border-blue-200 text-blue-800{% endif %}">
+                    <div class="flex items-center gap-2">
+                        {% if message.tags == 'success' %}
+                            <i class="ri-check-line"></i>
+                        {% elif message.tags == 'error' %}
+                            <i class="ri-error-warning-line"></i>
+                        {% else %}
+                            <i class="ri-information-line"></i>
+                        {% endif %}
+                        <span class="text-sm">{{ message }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+    {% else %}
+    <main class="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-gray-900 to-gray-800">
+        {% block login_content %}{% endblock %}
+    </main>
+    {% endif %}
+
+    <!-- Coming Soon Toast -->
+    <div id="coming-soon-toast" class="fixed top-6 right-6 z-[100] hidden">
+        <div class="bg-gray-900 text-white px-6 py-4 rounded-lg shadow-2xl flex items-center gap-4">
+            <div class="w-12 h-12 flex items-center justify-center bg-yellow-500/20 rounded-full">
+                <i class="ri-lock-line text-2xl text-yellow-400"></i>
+            </div>
+            <div>
+                <p class="text-sm font-semibold uppercase tracking-widest">Bientôt disponible</p>
+                <p class="text-xs text-gray-400 mt-1">Cette fonctionnalité sera bientôt ajoutée</p>
+            </div>
+            <button type="button" onclick="hideComingSoon()" class="text-gray-400 hover:text-white">
+                <i class="ri-close-line text-xl"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Announcement Panel -->
+    {% if active_announcements %}
+    <div id="announcement-panel" class="fixed top-20 right-4 w-96 bg-white rounded-xl shadow-2xl border border-gray-200 z-[100] hidden">
+        <div class="p-4 border-b border-gray-100 flex justify-between items-center">
+            <h3 class="font-serif text-lg uppercase tracking-widest">📢 Annonces</h3>
+            <button type="button" onclick="toggleAnnouncementPanel()" class="text-gray-400 hover:text-gray-600">
+                <i class="ri-close-line text-xl"></i>
+            </button>
+        </div>
+        <div class="max-h-96 overflow-y-auto">
+            {% for announcement in active_announcements %}
+            <div class="p-4 border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                {% if announcement.image %}
+                <img src="{{ announcement.image.url }}" alt="{{ announcement.title }}" class="w-full h-32 object-cover rounded-lg mb-3">
+                {% endif %}
+                <h4 class="font-semibold text-gray-900 mb-1">{{ announcement.title }}</h4>
+                <p class="text-sm text-gray-600 mb-2">{{ announcement.message|truncatewords:20 }}</p>
+                <div class="flex items-center gap-2">
+                    {% if announcement.created_at|date:"Y-m-d" == now|date:"Y-m-d" %}
+                    <span class="text-[9px] uppercase tracking-widest text-green-600 flex items-center gap-1">
+                        <span class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span> Nouveau
+                    </span>
+                    {% endif %}
+                    <span class="text-[9px] uppercase tracking-widest text-gray-400">{{ announcement.created_at|date:"d/m/Y H:i" }}</span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <script>
+        function showComingSoon() {
+            const toast = document.getElementById('coming-soon-toast');
+            toast.classList.remove('hidden');
+            setTimeout(function() {
+                hideComingSoon();
+            }, 3000);
+        }
+
+        function hideComingSoon() {
+            const toast = document.getElementById('coming-soon-toast');
+            toast.classList.add('hidden');
+        }
+        
+        function toggleAnnouncementPanel() {
+            const panel = document.getElementById('announcement-panel');
+            if (panel) {
+                panel.classList.toggle('hidden');
+            }
+        }
+        
+        // Close panel when clicking outside
+        document.addEventListener('click', function(event) {
+            const panel = document.getElementById('announcement-panel');
+            const bell = event.target.closest('button[onclick="toggleAnnouncementPanel()"]');
+            
+            if (panel && !panel.contains(event.target) && !bell) {
+                panel.classList.add('hidden');
+            }
+        });
+    </script>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

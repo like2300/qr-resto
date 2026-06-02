@@ -1,0 +1,202 @@
+{% extends 'staff/base.html' %}
+
+{% block title %}Additions - {{ restaurant.name }}{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="mb-10">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-4xl font-serif uppercase tracking-widest">Additions</h1>
+            <p class="text-xs uppercase tracking-widest text-gray-500 mt-3">Gérez les demandes d'addition</p>
+        </div>
+        <div class="flex gap-3">
+            <a href="{% url 'staff:dashboard' %}" class="btn-secondary">
+                <i class="ri-arrow-left-line mr-2"></i>Retour
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Stats -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <div class="card p-6 bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-200">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-xs uppercase tracking-widest text-yellow-600">En attente</p>
+                <p class="text-4xl font-serif mt-2 text-yellow-900">{{ bill_requests.count }}</p>
+            </div>
+            <div class="w-14 h-14 flex items-center justify-center bg-yellow-200">
+                <i class="ri-receipt-line text-3xl text-yellow-700"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="card p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-xs uppercase tracking-widest text-gray-500">Total tables</p>
+                <p class="text-4xl font-serif mt-2">{{ restaurant.tables.count }}</p>
+            </div>
+            <div class="w-14 h-14 flex items-center justify-center bg-gray-100">
+                <i class="ri-restaurant-2-line text-3xl"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="card p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-xs uppercase tracking-widest text-gray-500">Tables occupées</p>
+                <p class="text-4xl font-serif mt-2">{{ occupied_tables }}</p>
+            </div>
+            <div class="w-14 h-14 flex items-center justify-center bg-orange-100">
+                <i class="ri-armchair-line text-3xl text-orange-600"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bill Requests List -->
+<div class="card overflow-hidden">
+    <div class="p-6 border-b border-gray-200">
+        <h2 class="text-lg font-serif uppercase tracking-widest">Demandes en attente</h2>
+    </div>
+
+    {% if bill_requests %}
+    <table class="w-full">
+        <thead class="bg-gray-50 border-b border-gray-200">
+            <tr>
+                <th class="px-6 py-4 text-left text-xs uppercase tracking-widest text-gray-500">Table</th>
+                <th class="px-6 py-4 text-left text-xs uppercase tracking-widest text-gray-500">Commande</th>
+                <th class="px-6 py-4 text-left text-xs uppercase tracking-widest text-gray-500">Date demande</th>
+                <th class="px-6 py-4 text-left text-xs uppercase tracking-widest text-gray-500">Total</th>
+                <th class="px-6 py-4 text-left text-xs uppercase tracking-widest text-gray-500">Statut</th>
+                <th class="px-6 py-4 text-right text-xs uppercase tracking-widest text-gray-500">Actions</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+            {% for bill in bill_requests %}
+            <tr class="hover:bg-gray-50 transition-colors">
+                <td class="px-6 py-4">
+                    <span class="px-3 py-1 text-xs uppercase tracking-widest font-semibold"
+                          style="background-color: {{ bill.table.color }}20; color: {{ bill.table.color }};">
+                        {{ bill.table.name }}
+                    </span>
+                </td>
+                <td class="px-6 py-4">
+                    <a href="{% url 'staff:order_detail' bill.uuid %}" class="font-serif text-blue-600 hover:underline">
+                        #{{ bill.uuid|truncatechars:8 }}
+                    </a>
+                </td>
+                <td class="px-6 py-4 text-sm text-gray-500">
+                    {{ bill.bill_requested_at|date:"d/m/Y H:i" }}
+                    <span class="text-xs text-gray-400 ml-2">
+                        ({{ bill.bill_requested_at|timesince }})
+                    </span>
+                </td>
+                <td class="px-6 py-4 text-sm font-serif font-semibold">
+                    {{ bill.total_price|floatformat:0 }} FCFA
+                </td>
+                <td class="px-6 py-4">
+                    <span class="status-badge status-pending">
+                        <i class="ri-time-line mr-1"></i>En attente
+                    </span>
+                </td>
+                <td class="px-6 py-4 text-right">
+                    <div class="flex gap-2 justify-end">
+                        <a href="{% url 'staff:order_detail' bill.uuid %}" 
+                           class="px-3 py-2 border border-gray-300 text-xs uppercase tracking-widest hover:bg-gray-50 transition-colors">
+                            <i class="ri-eye-line mr-1"></i>Voir
+                        </a>
+                        <button type="button" onclick="markAsHandled('{{ bill.uuid }}')" 
+                                class="px-3 py-2 bg-green-500 hover:bg-green-600 text-white text-xs uppercase tracking-widest transition-colors">
+                            <i class="ri-check-line mr-1"></i>Traité
+                        </button>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="p-12 text-center">
+        <div class="w-20 h-20 mx-auto mb-4 flex items-center justify-center bg-green-100 rounded-full">
+            <i class="ri-check-double-line text-4xl text-green-600"></i>
+        </div>
+        <h3 class="text-lg font-serif uppercase tracking-widest text-gray-700 mb-2">
+            Aucune demande en attente
+        </h3>
+        <p class="text-sm text-gray-500">
+            Toutes les demandes d'addition ont été traitées.
+        </p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Toast Notification -->
+<div id="toast" class="fixed bottom-4 right-4 bg-green-500 text-white px-6 py-4 rounded-lg shadow-lg transform translate-y-full opacity-0 transition-all duration-300 z-[100]">
+    <div class="flex items-center gap-3">
+        <i class="ri-check-line text-xl"></i>
+        <span id="toast-message">Demande traitée</span>
+    </div>
+</div>
+
+<script>
+function markAsHandled(orderUuid) {
+    console.log('Marking bill as handled:', orderUuid);
+    
+    fetch('/staff/api/bill/' + orderUuid + '/handled/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Show success toast
+            showToast('✅ Demande d\'addition traitée avec succès');
+            
+            // Remove the row from the table
+            setTimeout(() => {
+                location.reload();
+            }, 1500);
+        } else {
+            showToast('❌ Erreur lors du traitement');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('❌ Erreur lors du traitement');
+    });
+}
+
+function showToast(message) {
+    const toast = document.getElementById('toast');
+    const toastMessage = document.getElementById('toast-message');
+    
+    toastMessage.textContent = message;
+    toast.classList.remove('translate-y-full', 'opacity-0');
+    
+    setTimeout(() => {
+        toast.classList.add('translate-y-full', 'opacity-0');
+    }, 3000);
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}

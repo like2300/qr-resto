@@ -1,0 +1,1286 @@
+{% extends 'menu/base.html' %}
+
+{% block content %}
+
+<!-- Category Navigation Bar -->
+<nav class="sticky top-20 z-50 bg-white border-b border-gray-100">
+    <div class="max-w-6xl mx-auto">
+        <div class="px-6 py-4 space-y-4">
+            <!-- Search Bar -->
+            <div class="relative">
+                <input
+                    type="text"
+                    id="menu-search"
+                    placeholder="Rechercher un plat, un ingrédient..."
+                    class="w-full px-4 py-3 pl-12 border border-gray-200 text-sm focus:outline-none focus:border-black bg-gray-50"
+                    oninput="searchMenu()"
+                >
+                <i class="ri-search-line absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+            </div>
+
+            <!-- Category Tabs -->
+            <div class="flex overflow-x-auto no-scrollbar gap-1">
+                <button type="button" onclick="showCategory('all')" id="tab-all"
+                        class="flex-shrink-0 px-5 py-2 text-[10px] uppercase tracking-[0.2em] font-bold transition-all border-b-2 border-black text-black bg-gray-50">
+                    Tous
+                </button>
+                {% for category in categories %}
+                <button type="button" onclick="showCategory('{{ category.id }}')" id="tab-{{ category.id }}"
+                        class="flex-shrink-0 px-5 py-2 text-[10px] uppercase tracking-[0.2em] font-bold transition-all border-b-2 border-transparent text-gray-400 hover:text-black hover:border-gray-300">
+                    {{ category.name }}
+                    {% with item_count=category.items.all|length %}
+                    {% if item_count > 0 %}
+                    <span class="ml-2 px-2 py-0.5 text-[9px] font-bold bg-black text-white rounded-full">{{ item_count }}</span>
+                    {% endif %}
+                    {% endwith %}
+                </button>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</nav>
+
+<form id="order-form" class="mt-12 px-6 pb-32" action="{% url 'menu:create_order' table.uuid %}" method="POST">
+    {% csrf_token %}
+    <input type="hidden" name="items" id="order-items">
+    <input type="hidden" name="notes" id="hidden-notes">
+
+    <section id="category-all" class="category-section mb-24" data-category="all">
+        <div class="flex items-center justify-center mb-12">
+            <span class="h-[1px] w-12 bg-gray-200"></span>
+            <h2 class="text-lg font-serif italic px-6 text-gray-800">Sélection Complète</h2>
+            <span class="h-[1px] w-12 bg-gray-200"></span>
+        </div>
+        <div class="grid gap-x-12 gap-y-16 sm:grid-cols-2 lg:grid-cols-3">
+            {% for category in categories %}
+                {% for item in category.items.all %}
+                    {% if item.is_available %}
+                        {% include "menu/partials/item_card.html" with suffix="all" %}
+                    {% endif %}
+                {% endfor %}
+            {% endfor %}
+        </div>
+    </section>
+
+    {% for category in categories %}
+    <section id="category-{{ category.id }}" class="category-section mb-24 hidden" data-category="{{ category.id }}">
+        <div class="flex items-center justify-center mb-12">
+            <span class="h-[1px] w-12 bg-gray-200"></span>
+            <h2 class="text-lg font-serif italic px-6 text-gray-800">{{ category.name }}</h2>
+            <span class="h-[1px] w-12 bg-gray-200"></span>
+        </div>
+        <div class="grid gap-x-12 gap-y-16 sm:grid-cols-2 lg:grid-cols-3">
+            {% for item in category.items.all %}
+                {% if item.is_available %}
+                    {% include "menu/partials/item_card.html" with suffix="cat" %}
+                {% endif %}
+            {% endfor %}
+        </div>
+    </section>
+    {% endfor %}
+</form>
+
+<!-- Floating Action Button -->
+<button type="button" onclick="toggleFAB()" id="fab-toggle"
+        class="fixed bottom-28 right-6 z-40 w-14 h-14 bg-gradient-to-br from-blue-600 to-purple-600 text-white shadow-2xl hover:from-blue-700 hover:to-purple-700 transition-all rounded-full flex items-center justify-center">
+    <i class="ri-add-line text-3xl" id="fab-icon"></i>
+</button>
+
+<!-- FAB Container -->
+<div class="fixed bottom-28 right-6 z-50 flex flex-col gap-3 items-end" id="fab-container" style="display: none;">
+    <button type="button" onclick="toggleFAB()"
+            class="w-14 h-14 bg-red-500 text-white shadow-2xl hover:bg-red-600 transition-all rounded-full flex items-center justify-center transform scale-0 opacity-0 fab-item">
+        <i class="ri-close-line text-3xl"></i>
+    </button>
+    <!-- Share QR Code Button -->
+    <button type="button" onclick="toggleShareModal()"
+            class="w-14 h-14 bg-green-600 text-white shadow-2xl hover:bg-green-700 transition-all rounded-full flex items-center justify-center transform scale-0 opacity-0 fab-item">
+        <i class="ri-qr-code-line text-2xl"></i>
+    </button>
+    <button type="button" onclick="toggleLanguageModal()"
+            class="w-14 h-14 bg-blue-600 text-white shadow-2xl hover:bg-blue-700 transition-all rounded-full flex items-center justify-center transform scale-0 opacity-0 fab-item">
+        <i class="ri-translate-2 text-2xl"></i>
+    </button>
+    <button type="button" onclick="toggleCurrencyModal()"
+            class="w-14 h-14 bg-purple-600 text-white shadow-2xl hover:bg-purple-700 transition-all rounded-full flex items-center justify-center transform scale-0 opacity-0 fab-item relative">
+        <i class="ri-coins-line text-2xl"></i>
+        <span class="absolute -top-1 -right-1 w-5 h-5 bg-yellow-400 text-black text-[9px] font-bold rounded-full flex items-center justify-center">{{ selected_currency }}</span>
+    </button>
+    <button type="button" onclick="toggleNotesSidebar()"
+            class="w-14 h-14 bg-black text-white shadow-2xl hover:bg-gray-800 transition-all rounded-full flex items-center justify-center transform scale-0 opacity-0 fab-item relative">
+        <i class="ri-message-2-line text-2xl"></i>
+        <span id="notes-indicator" class="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full hidden"></span>
+    </button>
+</div>
+
+<!-- Share QR Code Modal -->
+<div id="share-modal" class="fixed inset-0 z-[100] hidden">
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="toggleShareModal()"></div>
+    <div class="absolute inset-0 flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-md rounded-xl shadow-2xl transform scale-95 opacity-0 transition-all duration-300" id="share-modal-content">
+            <div class="p-6 border-b border-gray-100 flex justify-between items-center">
+                <div>
+                    <h3 class="font-serif text-xl italic text-black">Partager le menu</h3>
+                    <p class="text-[9px] uppercase tracking-widest text-gray-400 mt-1">Table {{ table.name }}</p>
+                </div>
+                <button type="button" onclick="toggleShareModal()" class="text-gray-400 hover:text-black">
+                    <i class="ri-close-line text-2xl"></i>
+                </button>
+            </div>
+
+            <div class="p-6">
+                <!-- QR Code -->
+                <div class="bg-gray-50 p-6 rounded-lg mb-6">
+                    <img id="qr-code-image" src="" alt="QR Code Menu" class="w-48 h-48 mx-auto">
+                </div>
+
+                <!-- Menu URL -->
+                <div class="mb-4">
+                    <label class="form-label">Lien du menu</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="menu-url" readonly
+                               class="form-input text-[10px] uppercase tracking-widest bg-gray-50"
+                               value="{{ request.build_absolute_uri }}">
+                        <button type="button" onclick="copyMenuUrl()"
+                                class="px-4 py-2 bg-black text-white text-[10px] uppercase tracking-widest hover:bg-gray-800 transition-colors">
+                            <i class="ri-file-copy-line"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Share Buttons -->
+                <div class="flex gap-3">
+                    <button type="button" onclick="shareViaWhatsApp()"
+                            class="flex-1 py-3 bg-green-500 hover:bg-green-600 text-white text-[10px] uppercase tracking-widest font-bold transition-colors">
+                        <i class="ri-whatsapp-line mr-2"></i>WhatsApp
+                    </button>
+                    <button type="button" onclick="shareViaSMS()"
+                            class="flex-1 py-3 bg-blue-500 hover:bg-blue-600 text-white text-[10px] uppercase tracking-widest font-bold transition-colors">
+                        <i class="ri-message-2-line mr-2"></i>SMS
+                    </button>
+                </div>
+
+                <p class="text-[9px] uppercase tracking-widest text-gray-400 mt-4 text-center">
+                    Scannez le QR code ou partagez le lien
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Language Modal -->
+<div id="language-modal" class="fixed inset-0 z-[100] hidden">
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="toggleLanguageModal()"></div>
+    <div class="absolute inset-0 flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-4xl rounded-xl shadow-2xl transform scale-95 opacity-0 transition-all duration-300 flex flex-col max-h-[90vh]" id="language-modal-content">
+            <div class="p-6 border-b border-gray-100 flex justify-between items-center flex-shrink-0">
+                <div>
+                    <h3 class="font-serif text-xl italic text-black">Langue / Language</h3>
+                    <p class="text-[9px] uppercase tracking-widest text-gray-400 mt-1">Choisissez votre langue</p>
+                </div>
+                <button type="button" onclick="toggleLanguageModal()" class="text-gray-400 hover:text-black">
+                    <i class="ri-close-line text-2xl"></i>
+                </button>
+            </div>
+
+            <!-- Indicateur de chargement -->
+            <div id="translation-loading" class="hidden px-6 py-3 bg-blue-50 border-b border-blue-100 flex items-center gap-3">
+                <div class="animate-spin w-4 h-4 border-2 border-blue-600 border-t-transparent"></div>
+                <span class="text-sm text-blue-700">Traduction en cours...</span>
+            </div>
+
+            <!-- Search Bar -->
+            <div class="p-6 pb-4 flex-shrink-0">
+                <div class="relative">
+                    <input
+                        type="text"
+                        id="language-search"
+                        placeholder="Rechercher une langue / Search language..."
+                        class="w-full px-4 py-3 pl-12 border border-gray-200 text-sm focus:outline-none focus:border-black bg-gray-50"
+                        oninput="searchLanguage()"
+                    >
+                    <i class="ri-search-line absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                </div>
+            </div>
+
+            <div class="p-6 pt-0 overflow-y-auto flex-1">
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3" id="language-grid">
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Currency Modal -->
+<div id="currency-modal" class="fixed inset-0 z-[100] hidden">
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="toggleCurrencyModal()"></div>
+    <div class="absolute inset-0 flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-md rounded-xl shadow-2xl transform scale-95 opacity-0 transition-all duration-300" id="currency-modal-content">
+            <div class="p-6 border-b border-gray-100 flex justify-between items-center">
+                <div>
+                    <h3 class="font-serif text-xl italic text-black">Devise / Currency</h3>
+                    <p class="text-[9px] uppercase tracking-widest text-gray-400 mt-1">Choisissez votre devise</p>
+                </div>
+                <button type="button" onclick="toggleCurrencyModal()" class="text-gray-400 hover:text-black">
+                    <i class="ri-close-line text-2xl"></i>
+                </button>
+            </div>
+            <div class="p-6 space-y-3" id="currency-grid">
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Notes Sidebar -->
+<div id="notes-sidebar" class="fixed inset-0 z-[100] hidden">
+    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="toggleNotesSidebar()"></div>
+    <div class="absolute right-0 top-0 bottom-0 w-full max-w-sm bg-white shadow-2xl transform translate-x-full transition-transform duration-300 ease-in-out p-8 flex flex-col">
+        <div class="flex justify-between items-center mb-8">
+            <div>
+                <h3 class="font-serif text-xl italic text-black">Précisions</h3>
+                <p class="text-[10px] uppercase tracking-widest text-gray-400 mt-1">Personnalisez votre commande</p>
+            </div>
+            <button type="button" onclick="toggleNotesSidebar()" class="hover:rotate-90 transition-transform duration-300">
+                <i class="ri-close-line text-2xl"></i>
+            </button>
+        </div>
+        <div class="mb-6">
+            <p class="text-[9px] uppercase tracking-[0.2em] text-gray-400 mb-3">Suggestions rapides</p>
+            <div class="flex flex-wrap gap-2">
+                <button type="button" onclick="addSuggestion('Sans gluten')" class="px-3 py-2 border border-gray-100 text-[10px] uppercase tracking-wider hover:border-black transition-colors bg-gray-50">Sans gluten</button>
+                <button type="button" onclick="addSuggestion('Cuisson saignante')" class="px-3 py-2 border border-gray-100 text-[10px] uppercase tracking-wider hover:border-black transition-colors bg-gray-50">Saignant</button>
+                <button type="button" onclick="addSuggestion('Pas d\'oignon')" class="px-3 py-2 border border-gray-100 text-[10px] uppercase tracking-wider hover:border-black transition-colors bg-gray-50">Sans oignon</button>
+                <button type="button" onclick="addSuggestion('Sauce à part')" class="px-3 py-2 border border-gray-100 text-[10px] uppercase tracking-wider hover:border-black transition-colors bg-gray-50">Sauce à part</button>
+                <button type="button" onclick="addSuggestion('Allergie arachides')" class="px-3 py-2 border border-gray-100 text-[10px] uppercase tracking-wider hover:border-black transition-colors bg-gray-50">Allergie 🥜</button>
+            </div>
+        </div>
+        <div class="flex-1 flex flex-col relative">
+            <textarea id="notes-textarea" rows="10"
+                      placeholder="Indiquez ici vos allergies ou préférences particulières..."
+                      class="w-full border-black border-l-2 border-t-0 border-r-0 border-b-0 p-4 text-sm focus:ring-0 resize-none bg-gray-50/50 flex-1 mb-8 placeholder:italic placeholder:text-gray-300"></textarea>
+        </div>
+        <button type="button" onclick="saveNotes()"
+                class="group relative w-full py-5 bg-black text-white text-[10px] uppercase tracking-[0.3em] font-bold overflow-hidden">
+            <span class="relative z-10">Enregistrer les notes</span>
+            <div class="absolute inset-0 bg-gray-800 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+        </button>
+    </div>
+</div>
+
+<!-- Item Detail Modal -->
+<div id="item-modal" class="fixed inset-0 z-[100] hidden">
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closeItemModal()"></div>
+    <div class="absolute inset-0 flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-2xl max-h-[90vh] overflow-y-auto transform scale-95 opacity-0 transition-all duration-300" id="modal-content">
+            <div class="sticky top-0 bg-white z-10 flex justify-end p-4 border-b border-gray-100">
+                <button type="button" onclick="closeItemModal()" class="text-gray-400 hover:text-black">
+                    <i class="ri-close-line text-3xl"></i>
+                </button>
+            </div>
+            <div id="modal-body" class="p-0"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ============================================
+// VARIABLES GLOBALES
+// ============================================
+let cart = {};
+let currentExchangeRate = {{ exchange_rate|default:"1.0" }};
+let currentCurrency = '{{ selected_currency }}';
+let currencySymbol = '{{ currency_symbol }}';
+let currentLanguage = 'fr';
+let googleTranslateSelect = null;
+let pageReloadTimeout = null;
+let isTranslating = false;
+
+// ============================================
+// LANGUE - VIA GOOGLE TRANSLATE CACHÉ
+// ============================================
+function setLanguage(langCode) {
+    console.log('🌐 [LANG] setLanguage called with:', langCode);
+
+    // Si c'est le français, on recharge sans traduction
+    if (langCode === 'fr') {
+        console.log('🇫🇷 [LANG] French selected - removing translation');
+        localStorage.removeItem('selected_language');
+        localStorage.removeItem('googtrans');
+        // Supprimer le cookie googtrans
+        document.cookie = 'googtrans=; Path=/; Domain=' + window.location.hostname + '; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+        window.location.href = window.location.pathname + window.location.search;
+        return;
+    }
+
+    // Sauvegarder la langue
+    currentLanguage = langCode;
+    localStorage.setItem('selected_language', langCode);
+    console.log('💾 [LANG] Saved to localStorage:', langCode);
+
+    // Direction pour l'arabe
+    if (langCode === 'ar') {
+        document.body.setAttribute('dir', 'rtl');
+        console.log('📖 [LANG] RTL direction set');
+    } else {
+        document.body.setAttribute('dir', 'ltr');
+        console.log('📖 [LANG] LTR direction set');
+    }
+
+    // Fermer la modal
+    toggleLanguageModal();
+
+    // Afficher l'indicateur de chargement
+    showTranslationLoading(langCode);
+
+    // Utiliser le select caché de Google Translate
+    if (googleTranslateSelect) {
+        console.log('🔧 [LANG] Using hidden Google Translate select');
+        triggerGoogleTranslation(langCode);
+    } else {
+        console.log('⏳ [LANG] Google Translate not ready, waiting...');
+        waitForGoogleTranslate(function() {
+            triggerGoogleTranslation(langCode);
+        });
+    }
+}
+
+function triggerGoogleTranslation(langCode) {
+    if (!googleTranslateSelect) {
+        console.error('❌ [LANG] Google Translate select still not available');
+        return;
+    }
+
+    console.log('🚀 [LANG] Triggering translation to:', langCode);
+    isTranslating = true;
+
+    // Annuler le précédent timeout s'il existe
+    if (pageReloadTimeout) {
+        clearTimeout(pageReloadTimeout);
+    }
+
+    // Changer la valeur du select caché
+    googleTranslateSelect.value = langCode;
+
+    // Déclencher l'événement change
+    const event = new Event('change', { bubbles: true });
+    googleTranslateSelect.dispatchEvent(event);
+
+    console.log('✅ [LANG] Translation event dispatched');
+
+    // Recharger après 2.5 secondes pour appliquer correctement
+    pageReloadTimeout = setTimeout(function() {
+        console.log('🔄 [LANG] Reloading page to apply translation');
+        window.location.reload();
+    }, 2500);
+}
+
+function waitForGoogleTranslate(callback, attempts) {
+    attempts = attempts || 0;
+    const maxAttempts = 20; // 10 secondes max
+
+    if (googleTranslateSelect) {
+        callback();
+        return;
+    }
+
+    if (attempts >= maxAttempts) {
+        console.error('❌ [LANG] Google Translate timeout');
+        hideTranslationLoading();
+        alert('Erreur de traduction. Veuillez réessayer.');
+        return;
+    }
+
+    setTimeout(function() {
+        googleTranslateSelect = document.querySelector('.goog-te-combo');
+        waitForGoogleTranslate(callback, attempts + 1);
+    }, 500);
+}
+
+function showTranslationLoading(langCode) {
+    const loading = document.getElementById('translation-loading');
+    if (loading) {
+        loading.classList.remove('hidden');
+        loading.querySelector('span').textContent = 'Traduction en cours vers ' + langCode.toUpperCase() + '...';
+    }
+}
+
+function hideTranslationLoading() {
+    const loading = document.getElementById('translation-loading');
+    if (loading) {
+        loading.classList.add('hidden');
+    }
+}
+
+function updateLanguageChecks() {
+    document.querySelectorAll('.lang-btn').forEach(function(btn) {
+        const langCode = btn.getAttribute('data-lang');
+        const check = btn.querySelector('.lang-check');
+        if (check) {
+            if (langCode === currentLanguage) {
+                check.classList.remove('hidden');
+                btn.classList.add('bg-blue-50', 'border-blue-200');
+            } else {
+                check.classList.add('hidden');
+                btn.classList.remove('bg-blue-50', 'border-blue-200');
+            }
+        }
+    });
+}
+
+function buildLanguageGrid(languagesToBuild) {
+    const grid = document.getElementById('language-grid');
+    if (!grid) return;
+
+    const languages = languagesToBuild || [
+        { code: 'fr', flag: '🇫🇷', name: 'Français' },
+        { code: 'en', flag: '🇬🇧', name: 'English' },
+        { code: 'es', flag: '🇪🇸', name: 'Español' },
+        { code: 'de', flag: '🇩🇪', name: 'Deutsch' },
+        { code: 'it', flag: '🇮🇹', name: 'Italiano' },
+        { code: 'ru', flag: '🇷🇺', name: 'Русский' },
+        { code: 'zh-CN', flag: '🇨🇳', name: '中文' },
+        { code: 'ar', flag: '🇸🇦', name: 'العربية' },
+        { code: 'pt', flag: '🇵🇹', name: 'Português' },
+        { code: 'ja', flag: '🇯🇵', name: '日本語' },
+        { code: 'ko', flag: '🇰🇷', name: '한국어' },
+        { code: 'vi', flag: '🇻🇳', name: 'Tiếng Việt' },
+        { code: 'th', flag: '🇹🇭', name: 'ไทย' },
+        { code: 'hi', flag: '🇮🇳', name: 'हिन्दी' },
+        { code: 'tr', flag: '🇹🇷', name: 'Türkçe' },
+        { code: 'pl', flag: '🇵🇱', name: 'Polski' },
+        { code: 'nl', flag: '🇳🇱', name: 'Nederlands' },
+        { code: 'sv', flag: '🇸🇪', name: 'Svenska' },
+        { code: 'da', flag: '🇩🇰', name: 'Dansk' },
+        { code: 'fi', flag: '🇫🇮', name: 'Suomi' },
+        { code: 'el', flag: '🇬🇷', name: 'Ελληνικά' },
+        { code: 'he', flag: '🇮🇱', name: 'עברית' },
+        { code: 'id', flag: '🇮🇩', name: 'Bahasa Indonesia' },
+        { code: 'ms', flag: '🇲🇾', name: 'Bahasa Melayu' },
+        { code: 'tl', flag: '🇵🇭', name: 'Tagalog' },
+        { code: 'uk', flag: '🇺🇦', name: 'Українська' },
+        { code: 'ro', flag: '🇷🇴', name: 'Română' },
+        { code: 'cs', flag: '🇨🇿', name: 'Čeština' },
+        { code: 'sk', flag: '🇸🇰', name: 'Slovenčina' },
+        { code: 'hu', flag: '🇭🇺', name: 'Magyar' },
+        { code: 'hr', flag: '🇭🇷', name: 'Hrvatski' },
+        { code: 'sr', flag: '🇷🇸', name: 'Српски' },
+        { code: 'sl', flag: '🇸🇮', name: 'Slovenščina' },
+        { code: 'et', flag: '🇪🇪', name: 'Eesti' },
+        { code: 'lv', flag: '🇱🇻', name: 'Latviešu' },
+        { code: 'lt', flag: '🇱🇹', name: 'Lietuvių' },
+        { code: 'bg', flag: '🇧🇬', name: 'Български' }
+    ];
+
+    let html = '';
+    languages.forEach(function(lang) {
+        const isChecked = lang.code === currentLanguage ? '' : 'hidden';
+        const isActive = lang.code === currentLanguage ? 'bg-blue-50 border-blue-200' : '';
+        html += `
+            <button type="button" onclick="setLanguage('${lang.code}')"
+                    data-lang="${lang.code}"
+                    data-name="${lang.name.toLowerCase()}"
+                    class="lang-btn flex flex-col items-center gap-2 p-4 hover:bg-gray-50 rounded-lg transition-colors border border-gray-100 ${isActive}">
+                <span class="text-4xl">${lang.flag}</span>
+                <span class="font-semibold text-gray-900 text-sm">${lang.name}</span>
+                <i class="ri-check-line text-2xl text-blue-500 lang-check ${isChecked}"></i>
+            </button>
+        `;
+    });
+    grid.innerHTML = html;
+}
+
+// Search language function
+function searchLanguage() {
+    const searchInput = document.getElementById('language-search');
+    if (!searchInput) return;
+
+    const searchTerm = searchInput.value.toLowerCase().trim();
+    const allLanguages = [
+        { code: 'fr', flag: '🇫🇷', name: 'Français' },
+        { code: 'en', flag: '🇬🇧', name: 'English' },
+        { code: 'es', flag: '🇪🇸', name: 'Español' },
+        { code: 'de', flag: '🇩🇪', name: 'Deutsch' },
+        { code: 'it', flag: '🇮🇹', name: 'Italiano' },
+        { code: 'ru', flag: '🇷🇺', name: 'Русский' },
+        { code: 'zh-CN', flag: '🇨🇳', name: '中文' },
+        { code: 'ar', flag: '🇸🇦', name: 'العربية' },
+        { code: 'pt', flag: '🇵🇹', name: 'Português' },
+        { code: 'ja', flag: '🇯🇵', name: '日本語' },
+        { code: 'ko', flag: '🇰🇷', name: '한국어' },
+        { code: 'vi', flag: '🇻🇳', name: 'Tiếng Việt' },
+        { code: 'th', flag: '🇹🇭', name: 'ไทย' },
+        { code: 'hi', flag: '🇮🇳', name: 'हिन्दी' },
+        { code: 'tr', flag: '🇹🇷', name: 'Türkçe' },
+        { code: 'pl', flag: '🇵🇱', name: 'Polski' },
+        { code: 'nl', flag: '🇳🇱', name: 'Nederlands' },
+        { code: 'sv', flag: '🇸🇪', name: 'Svenska' },
+        { code: 'da', flag: '🇩🇰', name: 'Dansk' },
+        { code: 'fi', flag: '🇫🇮', name: 'Suomi' },
+        { code: 'el', flag: '🇬🇷', name: 'Ελληνικά' },
+        { code: 'he', flag: '🇮🇱', name: 'עברית' },
+        { code: 'id', flag: '🇮🇩', name: 'Bahasa Indonesia' },
+        { code: 'ms', flag: '🇲🇾', name: 'Bahasa Melayu' },
+        { code: 'tl', flag: '🇵🇭', name: 'Tagalog' },
+        { code: 'uk', flag: '🇺🇦', name: 'Українська' },
+        { code: 'ro', flag: '🇷🇴', name: 'Română' },
+        { code: 'cs', flag: '🇨🇿', name: 'Čeština' },
+        { code: 'sk', flag: '🇸🇰', name: 'Slovenčina' },
+        { code: 'hu', flag: '🇭🇺', name: 'Magyar' },
+        { code: 'hr', flag: '🇭🇷', name: 'Hrvatski' },
+        { code: 'sr', flag: '🇷🇸', name: 'Српски' },
+        { code: 'sl', flag: '🇸🇮', name: 'Slovenščina' },
+        { code: 'et', flag: '🇪🇪', name: 'Eesti' },
+        { code: 'lv', flag: '🇱🇻', name: 'Latviešu' },
+        { code: 'lt', flag: '🇱🇹', name: 'Lietuvių' },
+        { code: 'bg', flag: '🇧🇬', name: 'Български' }
+    ];
+
+    const filteredLanguages = searchTerm === '' ?
+        allLanguages :
+        allLanguages.filter(lang =>
+            lang.name.toLowerCase().includes(searchTerm) ||
+            lang.code.toLowerCase().includes(searchTerm)
+        );
+
+    buildLanguageGrid(filteredLanguages);
+    updateLanguageChecks();
+}
+
+// ============================================
+// DEVISE
+// ============================================
+function setCurrency(currencyCode) {
+    const url = new URL(window.location);
+    url.searchParams.set('currency', currencyCode);
+    window.location.href = url.toString();
+}
+
+function updateCurrencyChecks() {
+    document.querySelectorAll('.currency-btn').forEach(function(btn) {
+        const code = btn.getAttribute('data-currency');
+        const check = btn.querySelector('.currency-check');
+        if (check) {
+            if (code === currentCurrency) {
+                check.classList.remove('hidden');
+                btn.classList.add('bg-purple-50', 'border-purple-200');
+            } else {
+                check.classList.add('hidden');
+                btn.classList.remove('bg-purple-50', 'border-purple-200');
+            }
+        }
+    });
+}
+
+function buildCurrencyGrid() {
+    const grid = document.getElementById('currency-grid');
+    if (!grid) return;
+
+    const currencies = [
+        { code: 'XAF', symbol: 'FCFA', name: 'Franc CFA', desc: 'Devise par défaut ★' },
+        { code: 'EUR', symbol: '€', name: 'Euro', desc: 'European Union' },
+        { code: 'USD', symbol: '$', name: 'US Dollar', desc: 'Dollar américain' },
+        { code: 'GBP', symbol: '£', name: 'British Pound', desc: 'Livre sterling' },
+        { code: 'CHF', symbol: 'CHF', name: 'Swiss Franc', desc: 'Franc suisse' },
+        { code: 'CAD', symbol: 'C$', name: 'Canadian Dollar', desc: 'Dollar canadien' }
+    ];
+
+    let html = '';
+    currencies.forEach(function(curr) {
+        const isActive = curr.code === currentCurrency ? 'bg-purple-50 border-purple-200' : '';
+        html += `
+            <button type="button" onclick="setCurrency('${curr.code}')"
+                    data-currency="${curr.code}"
+                    class="currency-btn w-full flex items-center gap-4 p-4 hover:bg-gray-50 rounded-lg transition-colors border border-gray-100 ${isActive}">
+                <span class="text-2xl font-bold text-purple-600 w-12">${curr.symbol}</span>
+                <div class="text-left flex-1">
+                    <p class="font-semibold text-gray-900">${curr.name}</p>
+                    <p class="text-xs text-gray-500">${curr.desc}</p>
+                </div>
+                <i class="ri-check-line text-xl text-purple-500 currency-check ${curr.code === currentCurrency ? '' : 'hidden'}"></i>
+            </button>
+        `;
+    });
+    grid.innerHTML = html;
+}
+
+function updateAllPrices() {
+    document.querySelectorAll('[data-price]').forEach(function(el) {
+        const priceFcfa = parseFloat(el.getAttribute('data-price'));
+
+        if (currentCurrency === 'XAF' || currentCurrency === 'XOF') {
+            el.textContent = priceFcfa.toFixed(0) + ' ' + currencySymbol;
+        } else {
+            const convertedPrice = (priceFcfa * currentExchangeRate).toFixed(2);
+            el.textContent = convertedPrice + ' ' + currencySymbol;
+        }
+    });
+}
+
+// ============================================
+// MODALS
+// ============================================
+function toggleLanguageModal() {
+    const modal = document.getElementById('language-modal');
+    const content = document.getElementById('language-modal-content');
+    const searchInput = document.getElementById('language-search');
+
+    if (modal.classList.contains('hidden')) {
+        if (searchInput) searchInput.value = '';
+        buildLanguageGrid();
+        hideTranslationLoading();
+
+        modal.classList.remove('hidden');
+        setTimeout(function() {
+            content.classList.remove('scale-95', 'opacity-0');
+            content.classList.add('scale-100', 'opacity-100');
+        }, 10);
+    } else {
+        content.classList.remove('scale-100', 'opacity-100');
+        content.classList.add('scale-95', 'opacity-0');
+        setTimeout(function() {
+            modal.classList.add('hidden');
+            hideTranslationLoading();
+        }, 300);
+    }
+}
+
+function toggleCurrencyModal() {
+    const modal = document.getElementById('currency-modal');
+    const content = document.getElementById('currency-modal-content');
+
+    if (modal.classList.contains('hidden')) {
+        buildCurrencyGrid();
+        modal.classList.remove('hidden');
+        setTimeout(function() {
+            content.classList.remove('scale-95', 'opacity-0');
+            content.classList.add('scale-100', 'opacity-100');
+        }, 10);
+    } else {
+        content.classList.remove('scale-100', 'opacity-100');
+        content.classList.add('scale-95', 'opacity-0');
+        setTimeout(function() {
+            modal.classList.add('hidden');
+        }, 300);
+    }
+}
+
+function openItemModal(id, name, price, description, imageUrl) {
+    const modal = document.getElementById('item-modal');
+    const modalContent = document.getElementById('modal-content');
+    const modalBody = document.getElementById('modal-body');
+
+    const isWholeNumber = (currentCurrency === 'XAF' || currentCurrency === 'XOF');
+    const convertedPrice = (price * currentExchangeRate).toFixed(isWholeNumber ? 0 : 2);
+
+    let html = '';
+
+    if (imageUrl) {
+        html += `<div class="aspect-[4/3] w-full overflow-hidden bg-gray-100">
+            <img src="${imageUrl}" alt="${name}" class="w-full h-full object-cover">
+        </div>`;
+    }
+
+    html += `<div class="p-8">
+        <div class="flex justify-between items-baseline mb-6 border-b border-gray-100 pb-4">
+            <h2 class="text-2xl font-serif uppercase tracking-tight">${name}</h2>
+            <span class="text-2xl font-light italic" data-price-fcfa="${price}">${convertedPrice} ${currencySymbol}</span>
+        </div>
+
+        ${description ? `<div class="mb-8">
+            <p class="text-[9px] uppercase tracking-widest text-gray-400 mb-3">Description</p>
+            <p class="text-base leading-relaxed text-gray-700">${description}</p>
+        </div>` : ''}
+
+        <div class="flex items-center gap-4">
+            <button type="button" onclick="updateQuantityFromModal(${id}, -1, ${price})"
+                    class="w-14 h-14 flex items-center justify-center border-2 border-black hover:bg-gray-50 transition-colors">
+                <i class="ri-subtract-line text-xl"></i>
+            </button>
+            <span id="modal-quantity-${id}" class="text-2xl font-bold tracking-widest w-12 text-center">${cart[id] ? cart[id].qty : 0}</span>
+            <button type="button" onclick="updateQuantityFromModal(${id}, 1, ${price})"
+                    class="w-14 h-14 flex items-center justify-center bg-black text-white hover:bg-gray-800 transition-colors">
+                <i class="ri-add-line text-xl"></i>
+            </button>
+        </div>
+
+        <button type="button" onclick="addToCartFromModal(${id}, ${price}); closeItemModal();"
+                class="w-full mt-8 py-4 bg-black text-white text-[10px] uppercase tracking-[0.2em] font-bold hover:bg-gray-800 transition-colors">
+            Ajouter à la commande
+        </button>
+    </div>`;
+
+    modalBody.innerHTML = html;
+    modal.classList.remove('hidden');
+    setTimeout(function() {
+        modalContent.classList.remove('scale-95', 'opacity-0');
+        modalContent.classList.add('scale-100', 'opacity-100');
+    }, 10);
+    document.body.style.overflow = 'hidden';
+}
+
+function closeItemModal() {
+    const modal = document.getElementById('item-modal');
+    const modalContent = document.getElementById('modal-content');
+
+    modalContent.classList.remove('scale-100', 'opacity-100');
+    modalContent.classList.add('scale-95', 'opacity-0');
+
+    setTimeout(function() {
+        modal.classList.add('hidden');
+        document.body.style.overflow = '';
+    }, 300);
+}
+
+function updateQuantityFromModal(itemId, delta, price) {
+    updateQuantity(itemId, delta, price);
+    const qtyEl = document.getElementById('modal-quantity-' + itemId);
+    if (qtyEl) {
+        qtyEl.textContent = cart[itemId] ? cart[itemId].qty : 0;
+    }
+}
+
+function addToCartFromModal(itemId, price) {
+    if (!cart[itemId] || cart[itemId].qty === 0) {
+        updateQuantity(itemId, 1, price);
+    }
+}
+
+// ============================================
+// FAB
+// ============================================
+let fabOpen = false;
+
+function toggleFAB() {
+    const fabToggle = document.getElementById('fab-toggle');
+    const fabIcon = document.getElementById('fab-icon');
+    const fabContainer = document.getElementById('fab-container');
+    const fabItems = document.querySelectorAll('.fab-item');
+
+    fabOpen = !fabOpen;
+
+    if (fabOpen) {
+        fabIcon.classList.remove('ri-add-line');
+        fabIcon.classList.add('ri-close-line');
+        fabContainer.style.display = 'flex';
+
+        fabItems.forEach(function(item, index) {
+            setTimeout(function() {
+                item.classList.remove('scale-0', 'opacity-0');
+                item.classList.add('scale-100', 'opacity-100');
+            }, (index + 1) * 80);
+        });
+    } else {
+        fabItems.forEach(function(item) {
+            item.classList.remove('scale-100', 'opacity-100');
+            item.classList.add('scale-0', 'opacity-0');
+        });
+
+        setTimeout(function() {
+            fabIcon.classList.remove('ri-close-line');
+            fabIcon.classList.add('ri-add-line');
+            fabContainer.style.display = 'none';
+        }, 300);
+    }
+}
+
+document.addEventListener('click', function(event) {
+    const fabContainer = document.getElementById('fab-container');
+    const fabToggle = document.getElementById('fab-toggle');
+
+    if (fabOpen && !fabContainer.contains(event.target) && !fabToggle.contains(event.target)) {
+        toggleFAB();
+    }
+});
+
+// ============================================
+// NOTES SIDEBAR
+// ============================================
+function toggleNotesSidebar() {
+    const sidebar = document.getElementById('notes-sidebar');
+    const panel = sidebar.querySelector('.transform');
+
+    if (sidebar.classList.contains('hidden')) {
+        if (fabOpen) toggleFAB();
+        sidebar.classList.remove('hidden');
+        setTimeout(function() {
+            panel.classList.remove('translate-x-full');
+        }, 10);
+    } else {
+        panel.classList.add('translate-x-full');
+        setTimeout(function() {
+            sidebar.classList.add('hidden');
+        }, 300);
+    }
+}
+
+function addSuggestion(text) {
+    const textarea = document.getElementById('notes-textarea');
+    const currentValue = textarea.value.trim();
+
+    if (currentValue.length > 0) {
+        textarea.value = currentValue + ", " + text;
+    } else {
+        textarea.value = text;
+    }
+
+    textarea.classList.add('bg-gray-100');
+    setTimeout(function() {
+        textarea.classList.remove('bg-gray-100');
+    }, 200);
+}
+
+function saveNotes() {
+    const val = document.getElementById('notes-textarea').value;
+    document.getElementById('hidden-notes').value = val;
+    document.getElementById('notes-indicator').classList.toggle('hidden', !val.trim());
+    toggleNotesSidebar();
+}
+
+// ============================================
+// SHARE QR CODE MODAL
+// ============================================
+function toggleShareModal() {
+    const modal = document.getElementById('share-modal');
+    const content = document.getElementById('share-modal-content');
+
+    if (fabOpen) toggleFAB();
+
+    if (modal.classList.contains('hidden')) {
+        modal.classList.remove('hidden');
+        setTimeout(function() {
+            content.classList.remove('scale-95', 'opacity-0');
+            content.classList.add('scale-100', 'opacity-100');
+        }, 10);
+        generateQRCode();
+    } else {
+        content.classList.remove('scale-100', 'opacity-100');
+        content.classList.add('scale-95', 'opacity-0');
+        setTimeout(function() {
+            modal.classList.add('hidden');
+        }, 300);
+    }
+}
+
+function generateQRCode() {
+    const menuUrl = window.location.href;
+    const qrCodeImage = document.getElementById('qr-code-image');
+    const qrCodeApi = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=';
+    qrCodeImage.src = qrCodeApi + encodeURIComponent(menuUrl);
+}
+
+function copyMenuUrl() {
+    const urlInput = document.getElementById('menu-url');
+    urlInput.select();
+    urlInput.setSelectionRange(0, 99999);
+    document.execCommand('copy');
+
+    const originalBg = urlInput.style.backgroundColor;
+    urlInput.style.backgroundColor = '#dcfce7';
+    setTimeout(function() {
+        urlInput.style.backgroundColor = originalBg;
+    }, 500);
+}
+
+function shareViaWhatsApp() {
+    const menuUrl = encodeURIComponent(window.location.href);
+    const text = encodeURIComponent('Découvrez notre menu ! Table {{ table.name }}');
+    window.open('https://wa.me/?text=' + text + ' ' + menuUrl, '_blank');
+}
+
+function shareViaSMS() {
+    const menuUrl = window.location.href;
+    const text = 'Découvrez notre menu ! Table {{ table.name }} ' + menuUrl;
+    window.open('sms:?body=' + encodeURIComponent(text), '_blank');
+}
+
+// ============================================
+// CATÉGORIES & RECHERCHE
+// ============================================
+function showCategory(id) {
+    document.querySelectorAll('.category-section').forEach(function(s) {
+        s.classList.add('hidden');
+    });
+    document.getElementById('category-' + id).classList.remove('hidden');
+
+    document.querySelectorAll('[id^="tab-"]').forEach(function(b) {
+        b.classList.remove('border-black', 'text-black');
+        b.classList.add('border-transparent', 'text-gray-400');
+    });
+
+    const activeTab = document.getElementById('tab-' + id);
+    if (activeTab) {
+        activeTab.classList.remove('border-transparent', 'text-gray-400');
+        activeTab.classList.add('border-black', 'text-black');
+    }
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function searchMenu() {
+    const query = document.getElementById('menu-search').value.toLowerCase().trim();
+    let visibleCount = 0;
+
+    if (query === '') {
+        document.querySelectorAll('.menu-item').forEach(function(item) {
+            item.style.display = 'flex';
+            visibleCount++;
+        });
+        document.querySelectorAll('.category-section').forEach(function(s) {
+            s.classList.remove('hidden');
+        });
+
+        const existingMessage = document.getElementById('search-no-results');
+        if (existingMessage) existingMessage.remove();
+        return;
+    }
+
+    document.querySelectorAll('.menu-item').forEach(function(item) {
+        const visibleText = item.textContent.toLowerCase();
+        const name = (item.getAttribute('data-name') || '').toLowerCase();
+        const nameFr = (item.getAttribute('data-name-fr') || '').toLowerCase();
+        const description = (item.getAttribute('data-description') || '').toLowerCase();
+
+        const normalizeArabic = function(str) {
+            return str
+                .replace(/[\u064B-\u065F\u0670]/g, '')
+                .replace(/[\u0610-\u061A]/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+        };
+
+        const queryNorm = normalizeArabic(query);
+        const visibleNorm = normalizeArabic(visibleText);
+        const nameNorm = normalizeArabic(name);
+        const nameFrNorm = normalizeArabic(nameFr);
+        const descNorm = normalizeArabic(description);
+
+        const match = visibleNorm.includes(queryNorm) ||
+                      nameNorm.includes(queryNorm) ||
+                      nameFrNorm.includes(queryNorm) ||
+                      descNorm.includes(queryNorm);
+
+        item.style.display = match ? 'flex' : 'none';
+        if (match) visibleCount++;
+    });
+
+    document.querySelectorAll('.category-section').forEach(function(s) {
+        s.classList.add('hidden');
+    });
+    document.getElementById('category-all').classList.remove('hidden');
+
+    document.querySelectorAll('[id^="tab-"]').forEach(function(b) {
+        b.classList.remove('border-black', 'text-black');
+        b.classList.add('border-transparent', 'text-gray-400');
+    });
+    const tabAll = document.getElementById('tab-all');
+    if (tabAll) {
+        tabAll.classList.remove('border-transparent', 'text-gray-400');
+        tabAll.classList.add('border-black', 'text-black');
+    }
+
+    const existingMessage = document.getElementById('search-no-results');
+    if (existingMessage) existingMessage.remove();
+
+    if (visibleCount === 0) {
+        const form = document.getElementById('order-form');
+        const message = document.createElement('div');
+        message.id = 'search-no-results';
+        message.className = 'text-center py-12';
+        message.innerHTML = `
+            <i class="ri-search-line text-6xl text-gray-300 mb-4"></i>
+            <p class="text-gray-500 text-lg">Aucun résultat trouvé</p>
+            <p class="text-gray-400 text-sm mt-2">Essayez avec un autre terme</p>
+        `;
+        form.insertBefore(message, form.firstChild);
+    }
+}
+
+// ============================================
+// PANIER & COMMANDE
+// ============================================
+function updateQuantity(itemId, delta, price) {
+    let currentQty = cart[itemId] ? cart[itemId].qty : 0;
+    let newQty = Math.max(0, Math.min(99, currentQty + delta));
+
+    if (newQty > 0) {
+        cart[itemId] = { qty: newQty, price: price };
+    } else {
+        delete cart[itemId];
+    }
+
+    document.querySelectorAll('[id^="quantity-"][id$="-' + itemId + '"]').forEach(function(el) {
+        el.textContent = newQty;
+    });
+    updateCartBar();
+}
+
+function updateCartBar() {
+    let bar = document.getElementById('cart-bar');
+    const items = Object.values(cart);
+    const totalFcfa = items.reduce(function(sum, i) { return sum + (i.qty * i.price); }, 0);
+
+    if (items.length === 0) {
+        if (bar) bar.remove();
+        return;
+    }
+
+    let total;
+    if (currentCurrency === 'XAF' || currentCurrency === 'XOF') {
+        total = totalFcfa.toFixed(0);
+    } else {
+        total = (totalFcfa * currentExchangeRate).toFixed(2);
+    }
+
+    if (!bar) {
+        bar = document.createElement('div');
+        bar.id = 'cart-bar';
+        bar.className = 'fixed bottom-0 left-0 right-0 bg-white border-t-2 border-black z-50 p-6 flex justify-between items-center';
+        document.body.appendChild(bar);
+    }
+
+    bar.innerHTML = `
+        <div>
+            <p class="text-[9px] uppercase tracking-widest text-gray-400">Total Commande</p>
+            <p class="text-2xl font-serif italic">${total} ${currencySymbol}</p>
+        </div>
+        <button type="button" onclick="submitOrder()" class="bg-black text-white px-10 py-4 text-[10px] uppercase tracking-[0.2em] font-bold">
+            Commander
+        </button>
+    `;
+}
+
+function submitOrder() {
+    const data = Object.entries(cart).map(function(entry) {
+        return entry[0] + ':' + entry[1].qty + ':' + entry[1].price;
+    }).join('|');
+    document.getElementById('order-items').value = data;
+    document.getElementById('order-form').submit();
+}
+
+// ============================================
+// ANNONCE / NOTIFICATION
+// ============================================
+function showAnnouncementIfNew() {
+    {% if announcement %}
+    const announcementId = '{{ announcement.id }}';
+    const lastAnnouncementId = localStorage.getItem('last_announcement_id');
+
+    if (lastAnnouncementId !== announcementId) {
+        setTimeout(function() {
+            showAnnouncement();
+        }, 500);
+    }
+    {% endif %}
+}
+
+function showAnnouncement() {
+    const modal = document.getElementById('announcement-modal');
+    const content = document.getElementById('announcement-content');
+
+    if (modal && content) {
+        modal.classList.remove('hidden');
+        setTimeout(function() {
+            content.classList.remove('scale-95', 'opacity-0');
+            content.classList.add('scale-100', 'opacity-100');
+        }, 10);
+    }
+}
+
+function closeAnnouncement() {
+    const modal = document.getElementById('announcement-modal');
+    const content = document.getElementById('announcement-content');
+
+    if (modal && content) {
+        content.classList.remove('scale-100', 'opacity-100');
+        content.classList.add('scale-95', 'opacity-0');
+        setTimeout(function() {
+            modal.classList.add('hidden');
+            {% if announcement %}
+            localStorage.setItem('last_announcement_id', '{{ announcement.id }}');
+            {% endif %}
+        }, 300);
+    }
+}
+
+// ============================================
+// INITIALISATION
+// ============================================
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Page loaded - initializing...');
+
+    // Charger la langue sauvegardée
+    currentLanguage = localStorage.getItem('selected_language') || 'fr';
+    console.log('🌐 [INIT] Current language:', currentLanguage);
+
+    // Charger la devise sauvegardée
+    if (!localStorage.getItem('selected_currency')) {
+        localStorage.setItem('selected_currency', currentCurrency);
+    }
+
+    // Mettre à jour les prix
+    updateAllPrices();
+
+    // Initialiser les grilles
+    buildLanguageGrid();
+    buildCurrencyGrid();
+
+    // Direction pour l'arabe
+    if (currentLanguage === 'ar') {
+        document.body.setAttribute('dir', 'rtl');
+    }
+
+    // Afficher l'annonce si elle existe
+    showAnnouncementIfNew();
+});
+</script>
+
+<!-- Google Translate - CACHÉ, utilisé uniquement par la modal -->
+<script type="text/javascript">
+    function googleTranslateElementInit() {
+        console.log('🌐 [GT] Initializing HIDDEN Google Translate...');
+
+        try {
+            new google.translate.TranslateElement({
+                pageLanguage: 'fr',
+                autoDisplay: false,
+                layout: google.translate.TranslateElement.InlineSimpleLayout,
+                includedLanguages: 'fr,en,es,de,it,pt,zh-CN,ja,ko,vi,th,hi,tr,pl,nl,sv,da,fi,el,he,id,ms,tl,uk,ro,cs,sk,hu,hr,sr,sl,et,lv,lt,bg,ru,ar'
+            }, 'google_translate_element');
+
+            console.log('✅ [GT] Hidden Google Translate widget initialized');
+
+            // Trouver le select après un court délai
+            setTimeout(function() {
+                googleTranslateSelect = document.querySelector('.goog-te-combo');
+                if (googleTranslateSelect) {
+                    console.log('✅ [GT] Hidden select found');
+
+                    // NE PAS ajouter d'event listener ici - c'est géré par setLanguage()
+                } else {
+                    console.log('⏳ [GT] Select not found yet');
+                }
+            }, 1000);
+        } catch(e) {
+            console.error('❌ [GT] Google Translate init error:', e);
+        }
+    }
+</script>
+<script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;600&display=swap');
+
+    :root {
+        --font-serif: 'Playfair Display', serif;
+        --font-sans: 'Inter', sans-serif;
+    }
+
+    body {
+        font-family: var(--font-sans);
+        background: #fff;
+        color: #000;
+        -webkit-font-smoothing: antialiased;
+    }
+
+    .font-serif { font-family: var(--font-serif); }
+    * { border-radius: 0 !important; }
+
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    input:focus { outline: none; box-shadow: none; }
+
+    .menu-item {
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .menu-item:hover {
+        transform: translateY(-4px);
+    }
+
+    .menu-item img {
+        transition: transform 1.2s cubic-bezier(0.2, 1, 0.3, 1), filter 0.8s;
+    }
+
+    .fab-item {
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+    }
+
+    #item-modal::-webkit-scrollbar { width: 6px; }
+    #item-modal::-webkit-scrollbar-track { background: #f1f1f1; }
+    #item-modal::-webkit-scrollbar-thumb { background: #888; }
+    #item-modal::-webkit-scrollbar-thumb:hover { background: #555; }
+
+    /* ============================================
+       CACHER COMPLÈTEMENT GOOGLE TRANSLATE
+       ============================================ */
+    #google_translate_element {
+        position: fixed !important;
+        top: -9999px !important;
+        left: -9999px !important;
+        width: 1px !important;
+        height: 1px !important;
+        overflow: hidden !important;
+        opacity: 0 !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+        z-index: -9999 !important;
+    }
+
+    /* Cacher TOUT ce que Google Translate ajoute */
+    .goog-te-gadget {
+        display: none !important;
+        visibility: hidden !important;
+        height: 0 !important;
+        width: 0 !important;
+        overflow: hidden !important;
+        position: absolute !important;
+        top: -9999px !important;
+        left: -9999px !important;
+    }
+
+    .goog-te-gadget span {
+        display: none !important;
+    }
+
+    .goog-te-gadget img {
+        display: none !important;
+    }
+
+    /* Cacher la bannière de traduction */
+    .goog-te-banner-frame {
+        display: none !important;
+        visibility: hidden !important;
+        height: 0 !important;
+        position: fixed !important;
+        top: -9999px !important;
+    }
+
+    /* Empêcher Google de modifier le body */
+    body {
+        top: 0 !important;
+        position: relative !important;
+    }
+
+    /* Cacher le popup de traduction en haut */
+    .skiptranslate {
+        display: none !important;
+        visibility: hidden !important;
+    }
+
+    .skiptranslate iframe {
+        display: none !important;
+        visibility: hidden !important;
+        height: 0 !important;
+    }
+
+    /* Cacher le select lui-même (celui qu'on utilise en JS) */
+    .goog-te-combo {
+        /* On le garde dans le DOM mais invisible */
+        position: absolute !important;
+        left: -9999px !important;
+        top: -9999px !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+    }
+</style>
+
+{% endblock %}

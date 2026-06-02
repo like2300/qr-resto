@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python *)",
+      "Bash(env/bin/python *)",
+      "Bash(/users/omerlinks/desktop/project/qr-resto/env/bin/python *)",
+      "Bash(/users/omerlinks/desktop/project/qr-resto/env/bin/pip *)",
+      "Bash(mkdir *)",
+      "Bash(rm *)",
+      "Bash(touch *)",
+      "Bash(sqlite3 *)"
+    ]
+  },
+  "$version": 3
+}

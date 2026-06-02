@@ -1,0 +1,265 @@
+{% extends 'staff/base.html' %}
+
+{% block title %}Finance - {{ restaurant.name }}{% endblock %}
+
+{% block extra_head %}
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="mb-10">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-4xl font-serif uppercase tracking-widest">Finance</h1>
+            <p class="text-xs uppercase tracking-widest text-gray-500 mt-3">Gestion des revenus et rapports</p>
+        </div>
+        <div class="flex items-center gap-2">
+            <a href="{% url 'staff:export_finance_pdf' %}?date={{ date_filter }}" class="btn-secondary">
+                <i class="ri-file-pdf-line mr-2"></i>PDF
+            </a>
+            <a href="{% url 'staff:export_finance_excel' %}?date={{ date_filter }}" class="btn-secondary">
+                <i class="ri-file-excel-line mr-2"></i>Excel
+            </a>
+            <a href="{% url 'staff:export_finance_word' %}?date={{ date_filter }}" class="btn-secondary">
+                <i class="ri-file-word-line mr-2"></i>Word
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Date Filter -->
+<div class="card p-6 mb-8">
+    <form method="get" class="flex items-center gap-4 flex-wrap">
+        <div>
+            <label class="block text-xs uppercase tracking-widest text-gray-500 mb-2">Période</label>
+            <select name="date" onchange="this.form.submit()" class="px-4 py-3 border border-gray-200 text-sm min-w-[150px]">
+                <option value="today" {% if date_filter == 'today' %}selected{% endif %}>Aujourd'hui</option>
+                <option value="week" {% if date_filter == 'week' %}selected{% endif %}>7 derniers jours</option>
+                <option value="month" {% if date_filter == 'month' %}selected{% endif %}>30 derniers jours</option>
+                <option value="year" {% if date_filter == 'year' %}selected{% endif %}>Cette année</option>
+            </select>
+        </div>
+        <div class="text-xs uppercase tracking-widest text-gray-500 self-end pb-3">
+            Du {{ start_date|date:"d/m/Y" }} au {{ end_date|date:"d/m/Y" }}
+        </div>
+    </form>
+</div>
+
+<!-- Stats Cards -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+    <div class="card p-6 bg-gradient-to-br from-green-50 to-green-100 border-green-200">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-xs uppercase tracking-widest text-green-600">Chiffre d'affaires</p>
+                <p class="text-4xl font-serif mt-2 text-green-900">{{ total_revenue|floatformat:0 }} FCFA</p>
+            </div>
+            <div class="w-16 h-16 flex items-center justify-center bg-green-200">
+                <i class="ri-coins-line text-4xl text-green-700"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="card p-6 bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-xs uppercase tracking-widest text-blue-600">Commandes</p>
+                <p class="text-4xl font-serif mt-2 text-blue-900">{{ total_orders }}</p>
+            </div>
+            <div class="w-16 h-16 flex items-center justify-center bg-blue-200">
+                <i class="ri-receipt-line text-4xl text-blue-700"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="card p-6 bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-xs uppercase tracking-widest text-purple-600">Panier moyen</p>
+                <p class="text-4xl font-serif mt-2 text-purple-900">{{ avg_order_value|floatformat:0 }} FCFA</p>
+            </div>
+            <div class="w-16 h-16 flex items-center justify-center bg-purple-200">
+                <i class="ri-shopping-basket-line text-4xl text-purple-700"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
+    <!-- Daily Revenue Chart -->
+    <div class="card p-6">
+        <h2 class="text-lg font-serif uppercase tracking-widest mb-6">Évolution des revenus</h2>
+        {% if daily_revenues %}
+        <canvas id="revenue-chart" height="200"></canvas>
+        {% else %}
+        <p class="text-gray-500 text-center py-8 text-xs uppercase tracking-widest">Aucune donnée disponible</p>
+        {% endif %}
+    </div>
+
+    <!-- Top Products -->
+    <div class="card p-6">
+        <h2 class="text-lg font-serif uppercase tracking-widest mb-6">Top produits</h2>
+        <div class="space-y-3">
+            {% for item in top_items %}
+            <div class="flex items-center justify-between pb-3 border-b border-gray-100 last:border-0">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 flex items-center justify-center bg-gray-100 text-xs font-serif font-bold">
+                        {{ forloop.counter }}
+                    </div>
+                    <span class="text-sm font-serif uppercase tracking-widest">{{ item.menu_item__name }}</span>
+                </div>
+                <div class="text-right">
+                    <span class="text-sm font-serif">{{ item.total_quantity }}x</span>
+                    <span class="text-xs text-gray-500 ml-2">{{ item.total_revenue|floatformat:0 }} FCFA</span>
+                </div>
+            </div>
+            {% empty %}
+            <p class="text-gray-500 text-center py-8 text-xs uppercase tracking-widest">Aucun produit vendu</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Orders Table -->
+<div class="card overflow-hidden">
+    <div class="p-6 border-b border-gray-100">
+        <h2 class="text-lg font-serif uppercase tracking-widest">Détail des commandes</h2>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-4 text-left text-xs uppercase tracking-widest text-gray-500">Date</th>
+                    <th class="px-6 py-4 text-left text-xs uppercase tracking-widest text-gray-500">Commande</th>
+                    <th class="px-6 py-4 text-left text-xs uppercase tracking-widest text-gray-500">Table</th>
+                    <th class="px-6 py-4 text-left text-xs uppercase tracking-widest text-gray-500">Statut</th>
+                    <th class="px-6 py-4 text-left text-xs uppercase tracking-widest text-gray-500">Articles</th>
+                    <th class="px-6 py-4 text-right text-xs uppercase tracking-widest text-gray-500">Total</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for order in orders %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-6 py-4 text-sm">{{ order.created_at|date:"d/m/Y H:i" }}</td>
+                    <td class="px-6 py-4">
+                        <span class="font-serif">#{{ order.uuid|truncatechars:8 }}</span>
+                    </td>
+                    <td class="px-6 py-4">
+                        <span class="px-3 py-1 text-xs uppercase tracking-widest"
+                              style="background-color: {{ order.table.color }}20; color: {{ order.table.color }};">
+                            {{ order.table.name }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4">
+                        <span class="status-badge {% if order.status == 'pending' %}status-pending{% elif order.status == 'confirmed' %}status-confirmed{% elif order.status == 'preparing' %}status-preparing{% elif order.status == 'ready' %}status-ready{% else %}status-served{% endif %}">
+                            {{ order.get_status_display }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-sm">{{ order.items.count }}</td>
+                    <td class="px-6 py-4 text-right font-serif font-semibold">
+                        {{ order.total_price|floatformat:0 }} FCFA
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="px-6 py-12 text-center text-gray-500">
+                        <i class="ri-inbox-line text-4xl mb-3"></i>
+                        <p class="text-xs uppercase tracking-widest">Aucune commande pour cette période</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+{% if daily_revenues %}
+// Initialisation du graphique Chart.js
+const ctx = document.getElementById('revenue-chart').getContext('2d');
+
+// Préparation des données
+const labels = [{% for day in daily_revenues %}'{{ day.date|date:"d/m" }}'{% if not forloop.last %}, {% endif %}{% endfor %}];
+const data = [{% for day in daily_revenues %}{{ day.revenue|floatformat:0 }}{% if not forloop.last %}, {% endif %}{% endfor %}];
+
+// Création du graphique
+new Chart(ctx, {
+    type: 'bar',
+    data: {
+        labels: labels,
+        datasets: [{
+            label: 'Revenus (FCFA)',
+            data: data,
+            backgroundColor: 'rgba(34, 197, 94, 0.6)',
+            borderColor: 'rgba(34, 197, 94, 1)',
+            borderWidth: 2,
+            borderRadius: 6,
+            borderSkipped: false,
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                display: false
+            },
+            tooltip: {
+                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                titleFont: {
+                    size: 13,
+                    weight: 'bold'
+                },
+                bodyFont: {
+                    size: 14,
+                    weight: 'bold'
+                },
+                padding: 12,
+                cornerRadius: 8,
+                callbacks: {
+                    label: function(context) {
+                        return new Intl.NumberFormat('fr-FR').format(context.parsed.y) + ' FCFA';
+                    }
+                }
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                grid: {
+                    color: 'rgba(0, 0, 0, 0.05)',
+                    drawBorder: false
+                },
+                ticks: {
+                    font: {
+                        size: 11
+                    },
+                    color: '#6B7280',
+                    callback: function(value) {
+                        return new Intl.NumberFormat('fr-FR', { notation: 'compact' }).format(value) + ' FCFA';
+                    }
+                }
+            },
+            x: {
+                grid: {
+                    display: false,
+                    drawBorder: false
+                },
+                ticks: {
+                    font: {
+                        size: 11
+                    },
+                    color: '#6B7280'
+                }
+            }
+        },
+        animation: {
+            duration: 1000,
+            easing: 'easeInOutQuart'
+        }
+    }
+});
+{% endif %}
+</script>
+{% endblock %}

@@ -1,0 +1,459 @@
+{% extends 'staff/base.html' %}
+
+{% block title %}Commande #{{ order.uuid|truncatechars:8 }} - {{ restaurant.name }}{% endblock %}
+
+{% block extra_head %}
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="mb-10">
+    <div class="flex items-center justify-between">
+        <div>
+            <a href="{% url 'staff:orders_list' %}" class="text-xs uppercase tracking-widest hover:underline mb-3 inline-flex items-center gap-1">
+                <i class="ri-arrow-left-line"></i> Retour aux commandes
+            </a>
+            <h1 class="text-4xl font-serif uppercase tracking-widest">Commande #{{ order.uuid|truncatechars:8 }}</h1>
+            <p class="text-xs uppercase tracking-widest text-gray-500 mt-3">Table {{ order.table.name }} • {{ order.created_at|date:"d/m/Y H:i" }}</p>
+        </div>
+
+        <!-- Status update -->
+        <form method="post" action="{% url 'staff:update_order_status' order.uuid %}">
+            {% csrf_token %}
+            <select name="status" onchange="this.form.submit()"
+                    class="px-6 py-3 border border-gray-200 text-xs uppercase tracking-widest">
+                {% for value, label in order.STATUS_CHOICES %}
+                <option value="{{ value }}" {% if order.status == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </form>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Order details -->
+    <div class="lg:col-span-2">
+        <div class="card overflow-hidden">
+            <div class="p-6 border-b border-gray-100">
+                <h2 class="text-lg font-serif uppercase tracking-widest">Détail de la commande</h2>
+            </div>
+            <div class="p-6">
+                <div class="space-y-4">
+                    {% for item in order.items.all %}
+                    <div class="flex items-start gap-4 pb-4 border-b border-gray-100 last:border-0 last:pb-0">
+                        <div class="w-12 h-12 flex items-center justify-center font-serif text-white"
+                             style="background-color: {{ order.table.color }};">
+                            {{ item.quantity }}x
+                        </div>
+                        <div class="flex-1">
+                            <p class="font-serif uppercase tracking-widest text-sm">{{ item.menu_item.name }}</p>
+                            {% if item.notes %}
+                            <p class="text-sm text-gray-500 mt-1">
+                                <i class="ri-message-line mr-1"></i>{{ item.notes }}
+                            </p>
+                            {% endif %}
+                            <p class="text-sm text-gray-500 mt-1">
+                                {{ item.unit_price|floatformat:0 }} FCFA × {{ item.quantity }}
+                            </p>
+                        </div>
+                        <div class="text-right">
+                            <p class="font-serif font-semibold">{{ item.subtotal|floatformat:0 }} FCFA</p>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                {% if order.notes %}
+                <div class="mt-6 pt-4 border-t border-gray-100">
+                    <p class="text-sm text-gray-500">
+                        <i class="ri-message-line mr-1"></i>
+                        <strong>Notes:</strong> {{ order.notes }}
+                    </p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Order info -->
+    <div class="space-y-6">
+        <!-- Status card -->
+        <div class="card p-6">
+            <h3 class="text-xs uppercase tracking-widest text-gray-500 mb-3">Statut actuel</h3>
+            <span class="inline-block px-4 py-2 status-badge {% if order.status == 'pending' %}status-pending{% elif order.status == 'confirmed' %}status-confirmed{% elif order.status == 'preparing' %}status-preparing{% elif order.status == 'ready' %}status-ready{% elif order.status == 'served' %}status-served{% else %}status-cancelled{% endif %}">
+                {{ order.get_status_display }}
+            </span>
+
+            <div class="mt-6 space-y-3 pt-6 border-t border-gray-100">
+                <div class="flex justify-between">
+                    <span class="text-xs uppercase tracking-widest text-gray-500">Date de commande</span>
+                    <span class="font-serif text-sm">{{ order.created_at|date:"d/m/Y H:i" }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-xs uppercase tracking-widest text-gray-500">Table</span>
+                    <span class="font-serif text-sm">{{ order.table.name }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-xs uppercase tracking-widest text-gray-500">Articles</span>
+                    <span class="font-serif text-sm">{{ order.items.count }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Total card -->
+        <div class="bg-gray-900 p-6">
+            <h3 class="text-xs uppercase tracking-widest text-gray-400 mb-2">Total</h3>
+            <p class="text-4xl font-serif text-white">{{ order.total_price|floatformat:0 }} FCFA</p>
+        </div>
+
+        <!-- Table actions -->
+        <div class="card p-6">
+            <h3 class="text-xs uppercase tracking-widest text-gray-500 mb-4">Actions table</h3>
+            <div class="space-y-2">
+                <a href="{% url 'staff:tables_list' %}"
+                   class="block w-full px-4 py-3 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-center text-xs uppercase tracking-widest transition-colors">
+                    <i class="ri-restaurant-2-line mr-2"></i>Voir les tables
+                </a>
+                <form method="post" action="{% url 'staff:clear_table' order.table.uuid %}"
+                      onsubmit="return confirm('Marquer cette table comme libre et servir toutes les commandes ?');">
+                    {% csrf_token %}
+                    <button type="submit"
+                            class="w-full px-4 py-3 bg-green-500 hover:bg-green-600 text-white text-xs uppercase tracking-widest transition-colors">
+                        <i class="ri-check-line mr-2"></i>Table libre + Servir
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Floating Action Button - Visible on all screens -->
+<button type="button" onclick="toggleFAB()" id="fab-toggle"
+        class="fixed bottom-28 right-6 z-40 w-14 h-14 bg-gradient-to-br from-blue-600 to-purple-600 text-white shadow-2xl hover:from-blue-700 hover:to-purple-700 transition-all rounded-full flex items-center justify-center">
+    <i class="ri-add-line text-3xl" id="fab-icon"></i>
+</button>
+
+<!-- Floating Action Buttons Container - Hidden by default -->
+<div class="fixed bottom-28 right-6 z-50 flex flex-col gap-3 items-end" id="fab-container" style="display: none;">
+    <!-- Close Button -->
+    <button type="button" onclick="toggleFAB()"
+            class="w-14 h-14 bg-red-500 text-white shadow-2xl hover:bg-red-600 transition-all rounded-full flex items-center justify-center transform scale-0 opacity-0 fab-item">
+        <i class="ri-close-line text-3xl"></i>
+    </button>
+
+    <!-- Language Selector Button -->
+    <button type="button" onclick="toggleLanguageModal()"
+            class="w-14 h-14 bg-blue-600 text-white shadow-2xl hover:bg-blue-700 transition-all rounded-full flex items-center justify-center transform scale-0 opacity-0 fab-item">
+        <i class="ri-translate-2 text-2xl"></i>
+    </button>
+
+    <!-- Currency Selector Button -->
+    <button type="button" onclick="toggleCurrencyModal()"
+            class="w-14 h-14 bg-purple-600 text-white shadow-2xl hover:bg-purple-700 transition-all rounded-full flex items-center justify-center transform scale-0 opacity-0 fab-item">
+        <i class="ri-coins-line text-2xl"></i>
+        <span class="absolute -top-1 -right-1 w-5 h-5 bg-yellow-400 text-black text-[9px] font-bold rounded-full flex items-center justify-center">XAF</span>
+    </button>
+
+    <!-- Notes Button -->
+    <button type="button" onclick="toggleNotesSidebar()"
+            class="w-14 h-14 bg-black text-white shadow-2xl hover:bg-gray-800 transition-all rounded-full flex items-center justify-center transform scale-0 opacity-0 fab-item">
+        <i class="ri-message-2-line text-2xl"></i>
+        <span id="notes-indicator" class="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full hidden"></span>
+    </button>
+</div>
+
+<!-- Language Modal -->
+<div id="language-modal" class="fixed inset-0 z-[100] hidden">
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="toggleLanguageModal()"></div>
+    <div class="absolute inset-0 flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-4xl rounded-xl shadow-2xl transform scale-95 opacity-0 transition-all duration-300" id="language-modal-content">
+            <div class="p-6 border-b border-gray-100 flex justify-between items-center">
+                <div>
+                    <h3 class="font-serif text-xl italic text-black">Langue / Language</h3>
+                    <p class="text-[9px] uppercase tracking-widest text-gray-400 mt-1">Choisissez votre langue</p>
+                </div>
+                <button type="button" onclick="toggleLanguageModal()" class="text-gray-400 hover:text-black">
+                    <i class="ri-close-line text-2xl"></i>
+                </button>
+            </div>
+
+            <div class="p-6">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <button type="button" onclick="setLanguage('fr')" class="lang-btn flex flex-col items-center gap-2 p-4 hover:bg-gray-50 rounded-lg transition-colors border border-gray-100">
+                        <span class="text-4xl">🇫🇷</span>
+                        <span class="font-semibold text-gray-900 text-sm">Français</span>
+                        <i class="ri-check-line text-2xl text-blue-500 hidden" id="check-fr"></i>
+                    </button>
+                    <button type="button" onclick="setLanguage('en')" class="lang-btn flex flex-col items-center gap-2 p-4 hover:bg-gray-50 rounded-lg transition-colors border border-gray-100">
+                        <span class="text-4xl">🇬🇧</span>
+                        <span class="font-semibold text-gray-900 text-sm">English</span>
+                        <i class="ri-check-line text-2xl text-blue-500 hidden" id="check-en"></i>
+                    </button>
+                    <button type="button" onclick="setLanguage('es')" class="lang-btn flex flex-col items-center gap-2 p-4 hover:bg-gray-50 rounded-lg transition-colors border border-gray-100">
+                        <span class="text-4xl">🇪🇸</span>
+                        <span class="font-semibold text-gray-900 text-sm">Español</span>
+                        <i class="ri-check-line text-2xl text-blue-500 hidden" id="check-es"></i>
+                    </button>
+                    <button type="button" onclick="setLanguage('de')" class="lang-btn flex flex-col items-center gap-2 p-4 hover:bg-gray-50 rounded-lg transition-colors border border-gray-100">
+                        <span class="text-4xl">🇩🇪</span>
+                        <span class="font-semibold text-gray-900 text-sm">Deutsch</span>
+                        <i class="ri-check-line text-2xl text-blue-500 hidden" id="check-de"></i>
+                    </button>
+                    <button type="button" onclick="setLanguage('it')" class="lang-btn flex flex-col items-center gap-2 p-4 hover:bg-gray-50 rounded-lg transition-colors border border-gray-100">
+                        <span class="text-4xl">🇮🇹</span>
+                        <span class="font-semibold text-gray-900 text-sm">Italiano</span>
+                        <i class="ri-check-line text-2xl text-blue-500 hidden" id="check-it"></i>
+                    </button>
+                    <button type="button" onclick="setLanguage('ru')" class="lang-btn flex flex-col items-center gap-2 p-4 hover:bg-gray-50 rounded-lg transition-colors border border-gray-100">
+                        <span class="text-4xl">🇷🇺</span>
+                        <span class="font-semibold text-gray-900 text-sm">Русский</span>
+                        <i class="ri-check-line text-2xl text-blue-500 hidden" id="check-ru"></i>
+                    </button>
+                    <button type="button" onclick="setLanguage('zh')" class="lang-btn flex flex-col items-center gap-2 p-4 hover:bg-gray-50 rounded-lg transition-colors border border-gray-100">
+                        <span class="text-4xl">🇨🇳</span>
+                        <span class="font-semibold text-gray-900 text-sm">中文</span>
+                        <i class="ri-check-line text-2xl text-blue-500 hidden" id="check-zh"></i>
+                    </button>
+                    <button type="button" onclick="setLanguage('ar')" class="lang-btn flex flex-col items-center gap-2 p-4 hover:bg-gray-50 rounded-lg transition-colors border border-gray-100">
+                        <span class="text-4xl">🇸🇦</span>
+                        <span class="font-semibold text-gray-900 text-sm">العربية</span>
+                        <i class="ri-check-line text-2xl text-blue-500 hidden" id="check-ar"></i>
+                    </button>
+                    <button type="button" onclick="setLanguage('ln')" class="lang-btn flex flex-col items-center gap-2 p-4 hover:bg-gray-50 rounded-lg transition-colors border border-gray-100">
+                        <span class="text-4xl">🇨🇩</span>
+                        <span class="font-semibold text-gray-900 text-sm">Lingala</span>
+                        <i class="ri-check-line text-2xl text-blue-500 hidden" id="check-ln"></i>
+                    </button>
+                    <button type="button" onclick="setLanguage('kg')" class="lang-btn flex flex-col items-center gap-2 p-4 hover:bg-gray-50 rounded-lg transition-colors border border-gray-100">
+                        <span class="text-4xl">🇨🇬</span>
+                        <span class="font-semibold text-gray-900 text-sm">Kituba</span>
+                        <i class="ri-check-line text-2xl text-blue-500 hidden" id="check-kg"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Currency Modal -->
+<div id="currency-modal" class="fixed inset-0 z-[100] hidden">
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="toggleCurrencyModal()"></div>
+    <div class="absolute inset-0 flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-md rounded-xl shadow-2xl transform scale-95 opacity-0 transition-all duration-300" id="currency-modal-content">
+            <div class="p-6 border-b border-gray-100 flex justify-between items-center">
+                <div>
+                    <h3 class="font-serif text-xl italic text-black">Devise / Currency</h3>
+                    <p class="text-[9px] uppercase tracking-widest text-gray-400 mt-1">Choisissez votre devise</p>
+                </div>
+                <button type="button" onclick="toggleCurrencyModal()" class="text-gray-400 hover:text-black">
+                    <i class="ri-close-line text-2xl"></i>
+                </button>
+            </div>
+
+            <div class="p-6 space-y-3">
+                <button type="button" onclick="setCurrency('XAF')" class="w-full flex items-center gap-4 p-4 hover:bg-gray-50 rounded-lg transition-colors border border-gray-100">
+                    <span class="text-2xl font-bold text-purple-600 w-12">FCFA</span>
+                    <div class="text-left flex-1">
+                        <p class="font-semibold text-gray-900">Franc CFA</p>
+                        <p class="text-xs text-gray-500">Devise par défaut ★</p>
+                    </div>
+                    <i class="ri-check-line text-xl text-purple-500 hidden" id="check-xaf"></i>
+                </button>
+                <button type="button" onclick="setCurrency('EUR')" class="w-full flex items-center gap-4 p-4 hover:bg-gray-50 rounded-lg transition-colors border border-gray-100">
+                    <span class="text-2xl font-bold text-purple-600 w-12">€</span>
+                    <div class="text-left flex-1">
+                        <p class="font-semibold text-gray-900">Euro</p>
+                        <p class="text-xs text-gray-500">European Union</p>
+                    </div>
+                    <i class="ri-check-line text-xl text-purple-500 hidden" id="check-eur"></i>
+                </button>
+                <button type="button" onclick="setCurrency('USD')" class="w-full flex items-center gap-4 p-4 hover:bg-gray-50 rounded-lg transition-colors border border-gray-100">
+                    <span class="text-2xl font-bold text-purple-600 w-12">$</span>
+                    <div class="text-left flex-1">
+                        <p class="font-semibold text-gray-900">US Dollar</p>
+                        <p class="text-xs text-gray-500">Dollar américain</p>
+                    </div>
+                    <i class="ri-check-line text-xl text-purple-500 hidden" id="check-usd"></i>
+                </button>
+                <button type="button" onclick="setCurrency('GBP')" class="w-full flex items-center gap-4 p-4 hover:bg-gray-50 rounded-lg transition-colors border border-gray-100">
+                    <span class="text-2xl font-bold text-purple-600 w-12">£</span>
+                    <div class="text-left flex-1">
+                        <p class="font-semibold text-gray-900">British Pound</p>
+                        <p class="text-xs text-gray-500">Livre sterling</p>
+                    </div>
+                    <i class="ri-check-line text-xl text-purple-500 hidden" id="check-gbp"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Notes Sidebar -->
+<div id="notes-sidebar" class="fixed inset-0 z-[100] hidden">
+    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="toggleNotesSidebar()"></div>
+    <div class="absolute right-0 top-0 bottom-0 w-full max-w-sm bg-white shadow-2xl transform translate-x-full transition-transform duration-300 ease-in-out p-8 flex flex-col">
+        <div class="flex justify-between items-center mb-8">
+            <div>
+                <h3 class="font-serif text-xl italic text-black">Précisions</h3>
+                <p class="text-[10px] uppercase tracking-widest text-gray-400 mt-1">Personnalisez votre commande</p>
+            </div>
+            <button type="button" onclick="toggleNotesSidebar()" class="hover:rotate-90 transition-transform duration-300">
+                <i class="ri-close-line text-2xl"></i>
+            </button>
+        </div>
+        <div class="mb-6">
+            <p class="text-[9px] uppercase tracking-[0.2em] text-gray-400 mb-3">Suggestions rapides</p>
+            <div class="flex flex-wrap gap-2">
+                <button type="button" onclick="addSuggestion('Sans gluten')" class="px-3 py-2 border border-gray-100 text-[10px] uppercase tracking-wider hover:border-black transition-colors bg-gray-50">Sans gluten</button>
+                <button type="button" onclick="addSuggestion('Cuisson saignante')" class="px-3 py-2 border border-gray-100 text-[10px] uppercase tracking-wider hover:border-black transition-colors bg-gray-50">Saignant</button>
+                <button type="button" onclick="addSuggestion('Pas d\'oignon')" class="px-3 py-2 border border-gray-100 text-[10px] uppercase tracking-wider hover:border-black transition-colors bg-gray-50">Sans oignon</button>
+                <button type="button" onclick="addSuggestion('Sauce à part')" class="px-3 py-2 border border-gray-100 text-[10px] uppercase tracking-wider hover:border-black transition-colors bg-gray-50">Sauce à part</button>
+                <button type="button" onclick="addSuggestion('Allergie arachides')" class="px-3 py-2 border border-gray-100 text-[10px] uppercase tracking-wider hover:border-black transition-colors bg-gray-50">Allergie 🥜</button>
+            </div>
+        </div>
+        <div class="flex-1 flex flex-col relative">
+            <textarea id="notes-textarea" rows="10"
+                      placeholder="Indiquez ici vos allergies ou préférences particulières..."
+                      class="w-full border-black border-l-2 border-t-0 border-r-0 border-b-0 p-4 text-sm focus:ring-0 resize-none bg-gray-50/50 flex-1 mb-8 placeholder:italic placeholder:text-gray-300"></textarea>
+        </div>
+        <button type="button" onclick="saveNotes()"
+                class="group relative w-full py-5 bg-black text-white text-[10px] uppercase tracking-[0.3em] font-bold overflow-hidden">
+            <span class="relative z-10">Enregistrer les notes</span>
+            <div class="absolute inset-0 bg-gray-800 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+        </button>
+    </div>
+</div>
+
+<script>
+// Toggle FAB
+let fabOpen = false;
+function toggleFAB() {
+    const fabToggle = document.getElementById('fab-toggle');
+    const fabIcon = document.getElementById('fab-icon');
+    const fabContainer = document.getElementById('fab-container');
+    const fabItems = document.querySelectorAll('.fab-item');
+
+    fabOpen = !fabOpen;
+
+    if (fabOpen) {
+        fabIcon.classList.remove('ri-add-line');
+        fabIcon.classList.add('ri-close-line');
+        fabContainer.style.display = 'flex';
+        fabItems.forEach((item, index) => {
+            setTimeout(() => {
+                item.classList.remove('scale-0', 'opacity-0');
+                item.classList.add('scale-100', 'opacity-100');
+            }, (index + 1) * 80);
+        });
+    } else {
+        fabItems.forEach(item => {
+            item.classList.remove('scale-100', 'opacity-100');
+            item.classList.add('scale-0', 'opacity-0');
+        });
+        setTimeout(() => {
+            fabIcon.classList.remove('ri-close-line');
+            fabIcon.classList.add('ri-add-line');
+            fabContainer.style.display = 'none';
+        }, 300);
+    }
+}
+
+// Language Modal
+function toggleLanguageModal() {
+    const modal = document.getElementById('language-modal');
+    const content = document.getElementById('language-modal-content');
+    if (modal.classList.contains('hidden')) {
+        modal.classList.remove('hidden');
+        setTimeout(() => {
+            content.classList.remove('scale-95', 'opacity-0');
+            content.classList.add('scale-100', 'opacity-100');
+        }, 10);
+        updateLanguageChecks();
+    } else {
+        content.classList.remove('scale-100', 'opacity-100');
+        content.classList.add('scale-95', 'opacity-0');
+        setTimeout(() => modal.classList.add('hidden'), 300);
+    }
+}
+
+function setLanguage(lang) {
+    localStorage.setItem('selected_language', lang);
+    location.reload();
+}
+
+function updateLanguageChecks() {
+    document.querySelectorAll('[id^="check-"]').forEach(el => el.classList.add('hidden'));
+    const savedLang = localStorage.getItem('selected_language') || 'fr';
+    const check = document.getElementById('check-' + savedLang);
+    if (check) check.classList.remove('hidden');
+}
+
+// Currency Modal
+function toggleCurrencyModal() {
+    const modal = document.getElementById('currency-modal');
+    const content = document.getElementById('currency-modal-content');
+    if (modal.classList.contains('hidden')) {
+        modal.classList.remove('hidden');
+        setTimeout(() => {
+            content.classList.remove('scale-95', 'opacity-0');
+            content.classList.add('scale-100', 'opacity-100');
+        }, 10);
+        updateCurrencyChecks();
+    } else {
+        content.classList.remove('scale-100', 'opacity-100');
+        content.classList.add('scale-95', 'opacity-0');
+        setTimeout(() => modal.classList.add('hidden'), 300);
+    }
+}
+
+function setCurrency(currency) {
+    localStorage.setItem('selected_currency', currency);
+    location.reload();
+}
+
+function updateCurrencyChecks() {
+    document.querySelectorAll('[id^="check-"]').forEach(el => el.classList.add('hidden'));
+    const savedCurr = localStorage.getItem('selected_currency') || 'XAF';
+    const check = document.getElementById('check-' + savedCurr.toLowerCase());
+    if (check) check.classList.remove('hidden');
+}
+
+// Notes Sidebar
+function toggleNotesSidebar() {
+    const sidebar = document.getElementById('notes-sidebar');
+    const panel = sidebar.querySelector('.transform');
+    if (sidebar.classList.contains('hidden')) {
+        if (fabOpen) toggleFAB();
+        sidebar.classList.remove('hidden');
+        setTimeout(() => panel.classList.remove('translate-x-full'), 10);
+    } else {
+        panel.classList.add('translate-x-full');
+        setTimeout(() => sidebar.classList.add('hidden'), 300);
+    }
+}
+
+function addSuggestion(text) {
+    const textarea = document.getElementById('notes-textarea');
+    const currentValue = textarea.value.trim();
+    if (currentValue.length > 0) {
+        textarea.value = currentValue + ", " + text;
+    } else {
+        textarea.value = text;
+    }
+}
+
+function saveNotes() {
+    const val = document.getElementById('notes-textarea').value;
+    document.getElementById('notes-indicator').classList.toggle('hidden', !val.trim());
+    toggleNotesSidebar();
+}
+
+// Initialize checks on page load
+document.addEventListener('DOMContentLoaded', function() {
+    updateLanguageChecks();
+    updateCurrencyChecks();
+});
+</script>
+{% endblock %}

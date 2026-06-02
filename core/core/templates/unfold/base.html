@@ -1,0 +1,123 @@
+{% extends "unfold/base.html" %}
+{% load static %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+    :root {
+        /* Couleurs dynamiques du thème */
+        --color-primary: {{ admin_theme.primary_color|default:"#3b82f6" }};
+        --color-primary-hover: {{ admin_theme.primary_hover|default:"#2563eb" }};
+        --color-primary-light: {{ admin_theme.primary_light|default:"#dbeafe" }};
+        
+        --color-success: {{ admin_theme.success_color|default:"#10b981" }};
+        --color-warning: {{ admin_theme.warning_color|default:"#f59e0b" }};
+        --color-danger: {{ admin_theme.danger_color|default:"#ef4444" }};
+        --color-info: {{ admin_theme.info_color|default:"#3b82f6" }};
+        
+        --sidebar-bg: {{ admin_theme.sidebar_bg|default:"#1e293b" }};
+        --sidebar-bg-gradient: {{ admin_theme.sidebar_bg_gradient|default:"#0f172a" }};
+        --sidebar-text: {{ admin_theme.sidebar_text|default:"#f8fafc" }};
+        
+        --bg-color: {{ admin_theme.bg_color|default:"#f9fafb" }};
+        --card-bg: {{ admin_theme.card_bg|default:"#ffffff" }};
+        
+        --text-primary: {{ admin_theme.text_primary|default:"#1f2937" }};
+        --text-secondary: {{ admin_theme.text_secondary|default:"#6b7280" }};
+        
+        --border-color: {{ admin_theme.border_color|default:"#e5e7eb" }};
+        --border-radius: {{ admin_theme.border_radius|default:8 }}px;
+    }
+    
+    /* Personnalisation de la sidebar */
+    .sidebar {
+        background: linear-gradient(180deg, var(--sidebar-bg) 0%, var(--sidebar-bg-gradient) 100%);
+    }
+    
+    .sidebar a, .sidebar span {
+        color: var(--sidebar-text);
+    }
+    
+    /* Personnalisation des cartes */
+    .card {
+        border-radius: var(--border-radius);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        background-color: var(--card-bg);
+    }
+    
+    /* Boutons arrondis */
+    .btn, .button, input[type="submit"], .submit-row input {
+        border-radius: var(--border-radius);
+    }
+    
+    /* Champs de formulaire */
+    input[type="text"],
+    input[type="email"],
+    input[type="password"],
+    input[type="number"],
+    input[type="color"],
+    textarea,
+    select {
+        border-radius: var(--border-radius);
+        border: 1px solid var(--border-color);
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    
+    input:focus,
+    textarea:focus,
+    select:focus {
+        outline: none;
+        border-color: var(--color-primary);
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+    
+    /* Tableaux */
+    table {
+        border-radius: var(--border-radius);
+        overflow: hidden;
+    }
+    
+    thead th {
+        background: var(--bg-color);
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.75rem;
+        letter-spacing: 0.05em;
+        color: var(--text-secondary);
+    }
+    
+    /* Badges */
+    .badge {
+        border-radius: 9999px;
+        padding: 0.25rem 0.75rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    /* Liens */
+    a {
+        color: var(--color-primary);
+    }
+    
+    a:hover {
+        color: var(--color-primary-hover);
+    }
+    
+    /* Messages */
+    .messagelist .success {
+        background-color: var(--color-success);
+    }
+    
+    .messagelist .warning {
+        background-color: var(--color-warning);
+    }
+    
+    .messagelist .error {
+        background-color: var(--color-danger);
+    }
+    
+    .messagelist .info {
+        background-color: var(--color-info);
+    }
+</style>
+{% endblock %}
