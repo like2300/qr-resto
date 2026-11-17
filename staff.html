@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cuisine / Personnel</title><link rel="stylesheet" href="style.css"></head><body>
+<header><h1>Espace personnel</h1><span id="sum"></span></header>
+<main>
+  <div class="box"><b>QR codes des tables</b><div class="grid" id="qrs" style="margin-top:10px"></div></div>
+  <div class="tabs" id="tabs"></div><div id="list"></div>
+  <button class="btn" id="clear">Vider l'historique</button>
+</main>
+<script src="data.js"></script>
+<script>
+const $ = id => document.getElementById(id); let f = "active";
+const base = location.href.replace(/staff\.html.*$/, "index.html");
+$("qrs").innerHTML = TABLES.map(t=>{ const u = base + "?table=" + encodeURIComponent(t);
+  return `<div style="text-align:center"><img width="140" src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(u)}"><br>${t}<br><a href="${u}" target="_blank">ouvrir</a></div>`}).join("");
+const next = {pending:["preparing","En préparation"], preparing:["ready","Prête"], ready:["served","Servie"]};
+function render(){
+  const all = loadOrders();
+  $("sum").textContent = "CA : " + fmt(all.filter(o=>o.status==="served").reduce((s,o)=>s+o.total,0));
+  $("tabs").innerHTML = [["active","En cours"],["all","Toutes"]].map(([k,l])=>`<button class="${f===k?'on':''}" data-f="${k}">${l}</button>`).join("");
+  const list = all.filter(o=>f==="all"||!["served","cancelled"].includes(o.status)).reverse();
+  $("list").innerHTML = list.map(o=>`<div class="box"><b>#${o.id} · ${o.table}</b> <span class="tag ${o.status}">${STATUS[o.status]}</span>
+    <small> ${new Date(o.at).toLocaleTimeString("fr-FR")}</small>
+    <table>${o.items.map(i=>`<tr><td>${i.qty}×</td><td>${i.name}</td><td>${fmt(i.qty*i.price)}</td></tr>`).join("")}</table>
+    ${o.notes?`<p>📝 ${o.notes.replace(/</g,"&lt;")}</p>`:""}<b>Total : ${fmt(o.total)}</b><br>
+    ${next[o.status]?`<button class="btn dark" data-id="${o.id}" data-s="${next[o.status][0]}">→ ${next[o.status][1]}</button>`:""}
+    ${["pending","preparing"].includes(o.status)?`<button class="btn" data-id="${o.id}" data-s="cancelled">Annuler</button>`:""}</div>`).join("") || "<p>Aucune commande.</p>";
+}
+document.addEventListener("click", e=>{ const d=e.target.dataset;
+  if(d.f){f=d.f;render()}
+  if(d.s){const o=loadOrders();o.find(x=>x.id==d.id).status=d.s;saveOrders(o);render()}});
+$("clear").onclick=()=>{ if(confirm("Tout supprimer ?")){saveOrders([]);render()} };
+window.addEventListener("storage", render); setInterval(render, 5000); render();
+</script></body></html>

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Menu</title><link rel="stylesheet" href="style.css"></head><body>
+<header><h1 id="title"></h1><span id="tbl"></span></header>
+<main>
+  <div id="myorders"></div>
+  <input id="q" placeholder="Rechercher un plat…">
+  <div class="tabs" id="tabs"></div>
+  <div class="grid" id="grid"></div>
+  <div class="box"><b>Notes pour la cuisine</b><textarea id="notes" rows="2" placeholder="Allergies, cuisson…"></textarea></div>
+</main>
+<div class="bar"><div><b id="count">0 article</b> · <span id="total">0</span></div><button class="btn dark" id="send">Commander</button></div>
+<script src="data.js"></script>
+<script>
+const table = new URLSearchParams(location.search).get("table") || TABLES[0];
+document.getElementById("title").textContent = RESTAURANT.name;
+document.getElementById("tbl").textContent = table;
+const cart = {}; let cat = "Tous";
+const all = MENU.flatMap(c => c.items.map(i => ({...i, cat: c.cat})));
+const $ = id => document.getElementById(id);
+
+function render(){
+  $("tabs").innerHTML = ["Tous", ...MENU.map(c=>c.cat)].map(c=>`<button class="${c===cat?'on':''}" data-c="${c}">${c}</button>`).join("");
+  const q = $("q").value.toLowerCase();
+  $("grid").innerHTML = all.filter(i => (cat==="Tous"||i.cat===cat) && (i.name+i.desc).toLowerCase().includes(q)).map(i=>`
+    <article class="card">${i.img?`<img src="${i.img}" alt="">`:`<div class="ph">🍽️</div>`}
+      <div class="b"><b>${i.name}</b><p>${i.desc}</p><span class="price">${fmt(i.price)}</span>
+      <div class="qty"><button data-id="${i.id}" data-d="-1">−</button><span>${cart[i.id]||0}</span><button data-id="${i.id}" data-d="1">+</button></div></div></article>`).join("");
+  const n = Object.values(cart).reduce((a,b)=>a+b,0);
+  const t = all.reduce((s,i)=>s+(cart[i.id]||0)*i.price,0);
+  $("count").textContent = n + " article" + (n>1?"s":""); $("total").textContent = fmt(t);
+  const mine = loadOrders().filter(o=>o.table===table);
+  $("myorders").innerHTML = mine.length ? "<div class='box'><b>Mes commandes</b>" + mine.map(o=>
+    `<div>#${o.id} · ${fmt(o.total)} · <span class="tag ${o.status}">${STATUS[o.status]}</span>
+    ${o.status==="pending"?`<button class="btn" data-cancel="${o.id}">Annuler</button>`:""}</div>`).join("") + "</div>" : "";
+}
+document.addEventListener("click", e=>{
+  const t = e.target;
+  if (t.dataset.c) { cat = t.dataset.c; render(); }
+  if (t.dataset.d) { const id=t.dataset.id; cart[id]=Math.max(0,(cart[id]||0)+Number(t.dataset.d)); render(); }
+  if (t.dataset.cancel) { const o=loadOrders(); o.find(x=>x.id==t.dataset.cancel).status="cancelled"; saveOrders(o); render(); }
+});
+$("q").oninput = render;
+$("send").onclick = () => {
+  const items = all.filter(i=>cart[i.id]).map(i=>({name:i.name,qty:cart[i.id],price:i.price}));
+  if(!items.length) return alert("Votre commande est vide");
+  const orders = loadOrders();
+  orders.push({id:(orders.at(-1)?.id||0)+1, table, items, notes:$("notes").value, status:"pending",
+    total:items.reduce((s,i)=>s+i.qty*i.price,0), at:new Date().toISOString()});
+  saveOrders(orders);
+  for (const k in cart) delete cart[k]; $("notes").value=""; render();
+  alert("Commande envoyée !");
+};
+window.addEventListener("storage", render); render();
+</script></body></html>
